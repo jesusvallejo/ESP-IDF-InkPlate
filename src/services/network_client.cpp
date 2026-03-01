@@ -219,6 +219,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t * evt)
       ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADERS_COMPLETE");
       ESP_LOGI(TAG, "HTTP_EVENT_ON_STATUS_CODE: %d", esp_http_client_get_status_code(evt->client));
       break;
+    case HTTP_EVENT_ON_STATUS_CODE:
+      // This event is not needed - status code is retrieved in HTTP_EVENT_ON_HEADERS_COMPLETE
+      break;
     case HTTP_EVENT_ON_DATA:
       ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
       if (!esp_http_client_is_chunked_response(evt->client)) {
