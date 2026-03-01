@@ -62,7 +62,7 @@ bool SDCard::setup() {
 
   sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
   slot_config.gpio_cs               = PIN_NUM_CS;
-  slot_config.host_id               = HSPI_HOST;
+  slot_config.host_id               = SPI3_HOST;
 
   spi_bus_config_t bus_cfg = {
       .mosi_io_num           = PIN_NUM_MOSI,
