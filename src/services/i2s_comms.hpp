@@ -12,12 +12,15 @@
 
 #include "esp_heap_caps.h"
 #include "soc/gpio_struct.h"
+#include "driver/gpio.h"
+#include "hal/gpio_hal.h"
 
 // #include "driver/periph_ctrl.h"
 
 // #include "driver/i2s.h"
 #include "esp_private/periph_ctrl.h"
 #include "rom/lldesc.h"
+#include "rom/gpio.h"
 #include "soc/i2s_reg.h"
 #include "soc/i2s_struct.h"
 #include "soc/periph_defs.h"

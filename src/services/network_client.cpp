@@ -136,7 +136,7 @@ NetworkClient::joinAP(const char * ssid, const char * pass)
   wifi_config.sta.password[sizeof(wifi_config.sta.password) - 1] = 0;
 
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_ERROR_CHECK(esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &wifi_config));
+  ESP_ERROR_CHECK(esp_wifi_set_config((wifi_interface_t)WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
 
   ESP_LOGI(TAG, "wifi_init_sta finished.");
@@ -214,6 +214,12 @@ static esp_err_t http_event_handler(esp_http_client_event_t * evt)
         buffer_size = atoi(evt->header_value);
         ESP_LOGI(TAG, "Donwload file size: %" PRIi32, buffer_size);
       }
+      break;
+    case HTTP_EVENT_ON_HEADERS_COMPLETE:
+      ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADERS_COMPLETE");
+      break;
+    case HTTP_EVENT_ON_STATUS_CODE:
+      ESP_LOGI(TAG, "HTTP_EVENT_ON_STATUS_CODE: %d", evt->status_code);
       break;
     case HTTP_EVENT_ON_DATA:
       ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);

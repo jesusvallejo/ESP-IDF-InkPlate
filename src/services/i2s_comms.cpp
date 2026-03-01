@@ -50,10 +50,10 @@
  *
  * @note        Function must be declared static to fit into Instruction RAM of the ESP32.
  */
-void IRAM_ATTR my_I2SInit(i2s_dev_t *_i2sDev, uint8_t _clockDivider) {
+void my_I2SInit(i2s_dev_t *_i2sDev, uint8_t _clockDivider) {
   // Enable I2S peripheral and reset it.
-  periph_module_enable(PERIPH_I2S1_MODULE);
-  periph_module_reset(PERIPH_I2S1_MODULE);
+  periph_module_enable(PERIPH_I2S0_MODULE);
+  periph_module_reset(PERIPH_I2S0_MODULE);
 
   // Reset the FIFO Buffer in I2S module.
   _i2sDev->conf.rx_fifo_reset = 1;
@@ -131,7 +131,7 @@ void IRAM_ATTR my_I2SInit(i2s_dev_t *_i2sDev, uint8_t _clockDivider) {
  * @note        Function must be declared static to fit into Instruction RAM of the ESP32. Also, DMA
  * descriptor must be already configured!
  */
-void IRAM_ATTR my_sendDataI2S(i2s_dev_t *_i2sDev, volatile lldesc_s *_dmaDecs) {
+void my_sendDataI2S(i2s_dev_t *_i2sDev, volatile lldesc_s *_dmaDecs) {
   // Stop any on-going transmission (just in case).
   _i2sDev->out_link.stop  = 1;
   _i2sDev->out_link.start = 0;
@@ -176,74 +176,18 @@ void IRAM_ATTR my_sendDataI2S(i2s_dev_t *_i2sDev, volatile lldesc_s *_dmaDecs) {
   _i2sDev->out_link.start = 0;
 }
 
-void IRAM_ATTR my_setI2S1pin(uint32_t _pin, uint32_t _function, uint32_t _inv) {
+void my_setI2S1pin(uint32_t _pin, uint32_t _function, uint32_t _inv) {
   // Check if valid pin is selected
   if (_pin > 39) return;
 
-  // Fast GPIO pin to MUX (maybe there is a better way to do this?).
-  const uint32_t io_mux[] = {IO_MUX_GPIO0_REG,
-                             IO_MUX_GPIO1_REG,
-                             IO_MUX_GPIO2_REG,
-                             IO_MUX_GPIO3_REG,
-                             IO_MUX_GPIO4_REG,
-                             IO_MUX_GPIO5_REG,
-                             IO_MUX_GPIO6_REG,
-                             IO_MUX_GPIO7_REG,
-                             IO_MUX_GPIO8_REG,
-                             IO_MUX_GPIO9_REG,
-                             IO_MUX_GPIO10_REG,
-                             IO_MUX_GPIO11_REG,
-                             IO_MUX_GPIO12_REG,
-                             IO_MUX_GPIO13_REG,
-                             IO_MUX_GPIO14_REG,
-                             IO_MUX_GPIO15_REG,
-                             IO_MUX_GPIO16_REG,
-                             IO_MUX_GPIO17_REG,
-                             IO_MUX_GPIO18_REG,
-                             IO_MUX_GPIO19_REG,
-                             IO_MUX_GPIO20_REG,
-                             IO_MUX_GPIO21_REG,
-                             IO_MUX_GPIO22_REG,
-                             IO_MUX_GPIO23_REG,
-                             IO_MUX_GPIO24_REG,
-                             IO_MUX_GPIO25_REG,
-                             IO_MUX_GPIO26_REG,
-                             IO_MUX_GPIO27_REG,
-                             0,
-                             0,
-                             0,
-                             0,
-                             IO_MUX_GPIO32_REG,
-                             IO_MUX_GPIO33_REG,
-                             IO_MUX_GPIO34_REG,
-                             IO_MUX_GPIO35_REG,
-                             IO_MUX_GPIO36_REG,
-                             IO_MUX_GPIO37_REG,
-                             IO_MUX_GPIO38_REG,
-                             IO_MUX_GPIO39_REG};
-
-  // Wrong pin selected? Return!
-  if (io_mux[_pin] == -1) return;
-
-  // Setup GPIO Matrix for selected pin signal
-  GPIO.func_out_sel_cfg[_pin].func_sel = _function; // Set the pin function
-  GPIO.func_out_sel_cfg[_pin].inv_sel  = _inv;      // Does pin logic needs to be inverted?
-  GPIO.func_out_sel_cfg[_pin].oen_sel  = 0;         // Force output enable if bit is set
-
-  // Registers are different for GPIOs from 0 to 32 and from 32 to 40.
-  if (_pin < 32) {
-    // Enable GPIO pin (set it as output).
-    GPIO.enable_w1ts = ((uint32_t)1 << _pin);
-  } else {
-    // Enable GPIO pin (set it as output).
-    GPIO.enable1_w1ts.data = ((uint32_t)1 << (32 - _pin));
-  }
-
-#define ESP_REG(addr) *((volatile uint32_t *)(addr))
-
-  // Set the highest drive strength.
-  ESP_REG(io_mux[_pin]) = 0;
-  ESP_REG(io_mux[_pin]) = ((3 << FUN_DRV_S) | (2 << MCU_SEL_S));
+  // Setup GPIO pin for I2S output
+  gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);
+  
+  // Set drive strength to maximum (3 = 40mA)
+  gpio_set_drive_capability((gpio_num_t)_pin, GPIO_DRIVE_CAP_3);
+  
+  // Connect the I2S output signal to this pin through GPIO matrix
+  esp_rom_gpio_connect_out_signal(_pin, _function, _inv, false);
 }
 
 void I2SComms::init_lldesc() {
