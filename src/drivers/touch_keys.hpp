@@ -2,9 +2,10 @@
 
 #include "non_copyable.hpp"
 #include <cstdint>
-#include "gpio_num.h"
 
 #if !M5_PAPER_S3
+
+#include "soc/gpio_num.h"
 
 #if PCAL6416
   #include "pcal6416.hpp"
