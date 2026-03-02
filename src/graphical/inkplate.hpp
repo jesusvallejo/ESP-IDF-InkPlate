@@ -40,13 +40,21 @@ class Inkplate : public Graphics
     inline void             einkOn() { e_ink.turn_on();                          }
     inline void            einkOff() { e_ink.turn_off();                         }
     inline uint8_t   getPanelState() { return (uint8_t) e_ink.get_panel_state(); }
+    #if !M5_PAPER_S3
     inline double      readBattery() { return battery.read_level();              }
+    #else
+    inline double      readBattery() { return 0.0;                               }
+    #endif
     inline uint8_t   readPowerGood() { return e_ink.read_power_good();           }
     inline int8_t  readTemperature() { return e_ink.read_temperature();          }
     inline void         disconnect() { network_client.disconnect();              }
     inline bool        isConnected() { return network_client.isConnected();      }
     inline int        _getRotation() { return Graphics::getRotation();           }
+    #if !M5_PAPER_S3
     inline bool         sdCardInit() { return sd_card.setup();                   }
+    #else
+    inline bool         sdCardInit() { return false;                             }
+    #endif
     inline uint16_t      einkWidth() { return e_ink.get_width();                 }
     inline uint16_t     einkHeight() { return e_ink.get_height();                }
 
