@@ -1,5 +1,8 @@
 #define __PRESS_KEYS__ 1
 #include "press_keys.hpp"
+
+#if !M5_PAPER_S3
+
 #include "wire.hpp"
 
 bool
@@ -50,3 +53,5 @@ PressKeys::read_key(Key key)
 
   return value == IOExpander::SignalLevel::HIGH ? 0 : 1;
 }
+
+#endif // !M5_PAPER_S3
