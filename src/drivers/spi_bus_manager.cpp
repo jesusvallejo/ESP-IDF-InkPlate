@@ -6,7 +6,7 @@ This code is released under the GNU Lesser General Public License v3.0
 */
 
 #include "spi_bus_manager.hpp"
-#include "esp_log.h"
+#include "logging.hpp"
 
 static constexpr char const * TAG = "SPIBusManager";
 

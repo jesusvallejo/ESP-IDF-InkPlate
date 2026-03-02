@@ -8,8 +8,7 @@ This code is released under the GNU Lesser General Public License v3.0
 */
 
 #include "it8951_controller.hpp"
-#include "esp_log.h"
-#include "esp_log.h"
+#include "logging.hpp"
 
 static constexpr char const * TAG = "IT8951";
 
