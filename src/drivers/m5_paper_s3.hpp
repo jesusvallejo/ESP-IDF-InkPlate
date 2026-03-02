@@ -17,7 +17,9 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 #include "non_copyable.hpp"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "esp_log.h"
 #include "eink.hpp"
+#include "frame_buffer.hpp"
 
 /**
  * @brief Low level e-Ink display for M5 Paper S3

@@ -19,6 +19,7 @@ This code is released under the GNU Lesser General Public License v3.0
 
 #include <cinttypes>
 #include "driver/i2c.h"
+#include "esp_log.h"
 
 /**
  * @brief AXP2101 Power Management IC driver

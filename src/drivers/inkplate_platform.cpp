@@ -64,10 +64,12 @@ bool
   }
 
   // Mount and check the SD Card
+#if !M5_PAPER_S3
   if (sd_card_init && !sd_card.setup()) {
     ESP_LOGE(TAG, "SDCard setup not completed!");
     return false;
   }
+#endif
 
   // Good to go
   ESP_LOGI(TAG, "Inkplate Device Setup complete!");
@@ -130,7 +132,9 @@ InkPlatePlatform::deep_sleep(gpio_num_t gpio_num, int level)
     front_light.disable();
   #endif
   
+#if !M5_PAPER_S3
   sd_card.deepSleep();
+#endif
   rtc_gpio_isolate(GPIO_NUM_12);
 
   esp_deep_sleep_start();

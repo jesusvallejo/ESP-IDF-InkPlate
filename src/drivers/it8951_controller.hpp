@@ -13,6 +13,7 @@ This code is released under the GNU Lesser General Public License v3.0
 #include <cinttypes>
 #include <cstring>
 #include "driver/spi_master.h"
+#include "esp_log.h"
 
 /**
  * @brief IT8951E e-ink display controller driver
