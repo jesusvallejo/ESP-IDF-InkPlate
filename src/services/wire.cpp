@@ -21,6 +21,7 @@ Wire::setup()
 
     mutex = xSemaphoreCreateMutexStatic(&mutex_buffer);
 
+    #if !M5_PAPER_S3
     #if I2C_LEGACY_BASED
       i2c_config_t config;
 
@@ -49,6 +50,7 @@ Wire::setup()
 
       ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &master_bus_handle));
     #endif
+    #endif  // !M5_PAPER_S3
 
     initialized = true; 
   }
