@@ -1,5 +1,7 @@
 #define __TOUCH_KEYS__ 1
 #include "touch_keys.hpp"
+
+#if !M5_PAPER_S3
 #include "wire.hpp"
 
 bool
@@ -44,3 +46,5 @@ TouchKeys::read_key(Key key)
 
   return value == IOExpander::SignalLevel::HIGH ? 1 : 0;
 }
+
+#endif  // !M5_PAPER_S3

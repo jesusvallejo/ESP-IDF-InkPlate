@@ -64,7 +64,7 @@ class SPIBusManager
     spi_device_handle_t spi_sdcard;
 
     // SPI bus configuration
-    static constexpr int SPI_BUS_ID = HSPI_HOST;  // Using HSPI (SPI2) for M5Paper3
+    static constexpr int SPI_BUS_ID = SPI2_HOST;  // Using SPI2 for M5Paper3
     static constexpr int SPI_DISPLAY_PIN_CS = 12;
     static constexpr int SPI_SDCARD_PIN_CS = 14;
 

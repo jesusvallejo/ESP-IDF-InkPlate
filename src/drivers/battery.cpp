@@ -6,7 +6,9 @@
 bool
 Battery::setup()
 {
+#if !M5_PAPER_S3
   io_expander.set_direction(BATTERY_SWITCH, IOExpander::PinMode::OUTPUT);
+#endif
 
   adc_unit_config = {
     .unit_id = ADC_UNIT_1,
@@ -29,11 +31,13 @@ Battery::setup()
 double 
 Battery::read_level()
 {
+#if !M5_PAPER_S3
   Wire::enter();
   io_expander.digital_write(BATTERY_SWITCH, IOExpander::SignalLevel::HIGH);
   Wire::leave();
 
   ESP::delay(1);
+#endif
   
   // adc1_config_width(ADC_WIDTH_BIT_12);
   // adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
@@ -43,9 +47,11 @@ Battery::read_level()
   int adc_value;
   adc_oneshot_read(adc_handle, ADC_CHANNEL_7, &adc_value);
 
+#if !M5_PAPER_S3
   Wire::enter();
   io_expander.digital_write(BATTERY_SWITCH, IOExpander::SignalLevel::LOW);
   Wire::leave();
+#endif
 
   return (double(adc_value) * 1.1 * 3.548133892 * 2) / 4095.0;
 }
