@@ -1,3 +1,7 @@
+#include <ctime>
+
+#if !M5_PAPER_S3
+
 #include "timegm.hpp"
 
 /*
@@ -118,3 +122,5 @@ timegm(struct tm *tm)
 
 	return (t < 0 ? (time_t) -1 : t);
 }
+
+#endif // !M5_PAPER_S3
