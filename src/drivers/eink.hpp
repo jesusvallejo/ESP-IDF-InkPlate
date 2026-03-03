@@ -27,6 +27,7 @@ class EInk
     inline bool        is_initialized() { return initialized; }
 
     virtual inline FrameBuffer1Bit * new_frame_buffer_1bit() = 0;
+    virtual inline FrameBuffer2Bit * new_frame_buffer_2bit() { return nullptr; }  // Optional for devices that support 2-bit
     virtual inline FrameBuffer3Bit * new_frame_buffer_3bit() = 0;
 
     virtual inline int16_t get_width()  = 0;
@@ -47,6 +48,7 @@ class EInk
     virtual bool setup() = 0;
 
     virtual inline void update(FrameBuffer1Bit & frame_buffer) = 0;
+    virtual inline void update(FrameBuffer2Bit & frame_buffer) { }  // Optional for devices that support 2-bit
     virtual inline void update(FrameBuffer3Bit & frame_buffer) = 0;
 
     virtual void partial_update(FrameBuffer1Bit & frame_buffer, bool force = false) = 0;
