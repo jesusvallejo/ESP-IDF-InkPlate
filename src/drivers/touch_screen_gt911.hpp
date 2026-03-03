@@ -29,7 +29,7 @@ class TouchScreen : NonCopyable
     static constexpr uint16_t MAX_X = 960;
     static constexpr uint16_t MAX_Y = 540;
 
-    TouchScreen() : ready(false), touch_pressed(false) {}
+    TouchScreen() : ready(false), touch_pressed(false), last_x(0), last_y(0), app_isr_handler(nullptr) {}
 
     typedef void (* ISRHandlerPtr)(void * value);
     typedef std::array<uint16_t, 2> TouchPositions;
@@ -100,5 +100,8 @@ class TouchScreen : NonCopyable
      */
     static void touch_interrupt_handler(void * arg);
 };
+
+// Global GT911 touch screen instance for M5 Paper S3
+extern TouchScreen touch_screen;
 
 #endif // M5_PAPER_S3

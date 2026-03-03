@@ -7,6 +7,9 @@
 
 static const char * TAG = "GT911";
 
+// Global GT911 touch screen instance for M5 Paper S3
+TouchScreen touch_screen;
+
 // GT911 I2C Register definitions
 static constexpr uint16_t GT911_REG_STATUS = 0x814E;
 static constexpr uint16_t GT911_REG_TOUCH_DATA = 0x8150;
@@ -17,11 +20,8 @@ static constexpr uint16_t GT911_REG_X_OUTPUT_MAX_HIGH = 0x8049;
 static constexpr uint16_t GT911_REG_Y_OUTPUT_MAX_LOW = 0x804A;
 static constexpr uint16_t GT911_REG_Y_OUTPUT_MAX_HIGH = 0x804B;
 
-static TouchScreen * gt911_instance = nullptr;
-
 bool TouchScreen::setup(bool power_on, ISRHandlerPtr isr_handler) 
 {
-  gt911_instance = this;
   app_isr_handler = isr_handler;
   
   ESP_LOGI(TAG, "Initializing GT911 touch controller at I2C address 0x%02X", GT911_I2C_ADDR);
