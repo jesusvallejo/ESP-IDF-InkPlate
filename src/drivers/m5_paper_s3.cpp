@@ -418,6 +418,53 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   LOG_D("1-bit update complete");
 }
 
+void M5Paper3::update(FrameBuffer2Bit & frame_buffer)
+{
+  // Convert 2-bit (4 levels) to 4-bit (16-level grayscale)
+  // 2-bit pixel values: 0-3 → 4-bit values: 0-15
+  // Scale: value_4bit = value_2bit * 5 (or approximately << 2 for 0, 5, 10, 15)
+  
+  if (!initialized) {
+    LOG_E("Display not initialized");
+    return;
+  }
+  
+  LOG_D("Converting 2-bit frame buffer (%dx%d) to 4-bit for 16-level grayscale", WIDTH, HEIGHT);
+  
+  // Allocate temporary 4-bit buffer for conversion
+  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  
+  const uint8_t * src = frame_buffer.get_data();
+  uint8_t * dst = conversion_buffer;
+  
+  // 2-bit packing: Each 8 bits contains 4 pixels (2 bits per pixel)
+  for (size_t byte_idx = 0; byte_idx < frame_buffer.get_data_size(); byte_idx++) {
+    uint8_t src_byte = src[byte_idx];
+    
+    // Extract 4 x 2-bit pixels from this byte and convert to 4-bit
+    // Byte layout: [pixel0(2b)][pixel1(2b)][pixel2(2b)][pixel3(2b)]
+    for (int i = 0; i < 4; i++) {
+      uint8_t pixel_2bit = (src_byte >> (i * 2)) & 0x03;  // Extract 2-bit value (0-3)
+      uint8_t pixel_4bit = pixel_2bit * 5;  // Scale to 0-15 range
+      
+      if (i % 2 == 0) {
+        // Lower nibble
+        *dst = (pixel_4bit & 0x0F);
+      } else {
+        // Upper nibble
+        *dst = (*dst & 0x0F) | ((pixel_4bit & 0x0F) << 4);
+        dst++;
+      }
+    }
+  }
+  
+  // Send converted image to display
+  wait_for_display_ready();
+  load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
+  refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
+  
+  LOG_D("2-bit update complete");
+
 void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
 {
   LOG_I("M5Paper3::update(3Bit) - converting from InkPlate 3-bit format");

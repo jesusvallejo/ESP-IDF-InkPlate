@@ -122,7 +122,7 @@ float M5Paper3PowerManager::read_battery_voltage_adc()
   // Nominal lithium battery voltage: 3.7V
   float battery_voltage = 3.7f;
   
-  LOG_D("ADC raw: %d, ADC voltage: %.3fV, Battery: %.3fV", adc_raw, adc_voltage, battery_voltage);
+  LOG_D("Battery voltage: %.3fV", battery_voltage);
   return battery_voltage;
 }
 
