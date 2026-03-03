@@ -11,6 +11,9 @@
   #else
     #include "mcp23017.hpp"
   #endif
+#else
+  // Forward declare IOExpander for M5_PAPER_S3 build (not used but type must be known)
+  class IOExpander;
 #endif
 
 class SDCard
