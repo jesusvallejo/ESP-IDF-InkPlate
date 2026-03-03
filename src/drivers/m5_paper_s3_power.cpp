@@ -99,8 +99,13 @@ bool M5Paper3PowerManager::is_charging()
     return false;
   }
 
-  // TODO: Check charging status bit
-  return false;
+  uint8_t status;
+  if (!read_register(REG_POWER_STATUS, status)) {
+    LOG_E("Failed to read power status");
+    return false;
+  }
+
+  return (status & BIT_CHARGING) != 0;
 }
 
 bool M5Paper3PowerManager::is_power_connected()
@@ -112,8 +117,13 @@ bool M5Paper3PowerManager::is_power_connected()
     return false;
   }
 
-  // TODO: Check USB/AC power input status
-  return false;
+  uint8_t status;
+  if (!read_register(REG_INPUT_STATUS, status)) {
+    LOG_E("Failed to read input status");
+    return false;
+  }
+
+  return (status & (BIT_USB_PRESENT | BIT_AC_PRESENT)) != 0;
 }
 
 bool M5Paper3PowerManager::enter_deep_sleep(uint32_t duration_ms)
@@ -125,8 +135,28 @@ bool M5Paper3PowerManager::enter_deep_sleep(uint32_t duration_ms)
     return false;
   }
 
-  // TODO: Configure timer wakeup
-  // TODO: Enable deep sleep mode
+  // Configure timer-based wakeup if duration specified
+  if (duration_ms > 0) {
+    if (!configure_timer_wakeup(duration_ms)) {
+      LOG_E("Failed to configure timer wakeup");
+      return false;
+    }
+  }
+
+  // Enable deep sleep: set bit 6 in SLEEP_CONFIG (0x31)
+  uint8_t sleep_config;
+  if (!read_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to read sleep config");
+    return false;
+  }
+
+  sleep_config |= 0x40;  // Enable deep sleep
+  if (!write_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to enable deep sleep");
+    return false;
+  }
+
+  LOG_I("Deep sleep enabled");
   return true;
 }
 
@@ -139,7 +169,20 @@ bool M5Paper3PowerManager::exit_deep_sleep()
     return false;
   }
 
-  // TODO: Disable deep sleep mode
+  // Disable deep sleep: clear bit 6 in SLEEP_CONFIG (0x31)
+  uint8_t sleep_config;
+  if (!read_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to read sleep config");
+    return false;
+  }
+
+  sleep_config &= ~0x40;  // Disable deep sleep
+  if (!write_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to disable deep sleep");
+    return false;
+  }
+
+  LOG_I("Deep sleep disabled");
   return true;
 }
 
@@ -152,7 +195,17 @@ bool M5Paper3PowerManager::set_gpio0_power_output(bool enable)
     return false;
   }
 
-  // TODO: Set GPIO0 control register for USB power output
+  // Set GPIO0 control register (0x90)
+  // Bit 1: Output level (1=HIGH, 0=LOW)
+  // Bit 0: Function select (1=GPIO, 0=ADC input)
+  uint8_t gpio_ctrl = enable ? 0x03 : 0x02;  // Enable: GPIO output HIGH, Disable: GPIO output LOW
+  
+  if (!write_register(REG_GPIO0_CTRL, gpio_ctrl)) {
+    LOG_E("Failed to set GPIO0 control");
+    return false;
+  }
+
+  LOG_I("GPIO0 power output %s", enable ? "enabled" : "disabled");
   return true;
 }
 
@@ -165,8 +218,17 @@ float M5Paper3PowerManager::get_internal_temperature()
     return 0.0f;
   }
 
-  // TODO: Read internal temperature register
-  return 0.0f;
+  uint8_t temp_data[2];
+  if (!read_registers(REG_TEMP_H, temp_data, 2)) {
+    LOG_E("Failed to read internal temperature registers");
+    return 0.0f;
+  }
+
+  float temperature = 0.0f;
+  parse_temperature(temp_data[0], temp_data[1], temperature);
+  
+  LOG_D("Internal temperature: %.1f C", temperature);
+  return temperature;
 }
 
 float M5Paper3PowerManager::get_battery_temperature()
@@ -178,8 +240,19 @@ float M5Paper3PowerManager::get_battery_temperature()
     return 0.0f;
   }
 
-  // TODO: Read battery temperature sensor
-  return 0.0f;
+  // Battery temperature uses same registers as internal temperature on AXP2101
+  // Read from REG_TEMP_H and REG_TEMP_L
+  uint8_t temp_data[2];
+  if (!read_registers(REG_TEMP_H, temp_data, 2)) {
+    LOG_E("Failed to read battery temperature registers");
+    return 0.0f;
+  }
+
+  float temperature = 0.0f;
+  parse_temperature(temp_data[0], temp_data[1], temperature);
+  
+  LOG_D("Battery temperature: %.1f C", temperature);
+  return temperature;
 }
 
 bool M5Paper3PowerManager::configure_button_wakeup()
@@ -191,7 +264,21 @@ bool M5Paper3PowerManager::configure_button_wakeup()
     return false;
   }
 
-  // TODO: Configure power button as wakeup source
+  // Configure power button as wakeup source in SLEEP_CONFIG (0x31)
+  // Bit 7: Power button wakeup enable
+  uint8_t sleep_config;
+  if (!read_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to read sleep config");
+    return false;
+  }
+
+  sleep_config |= 0x80;  // Enable power button wakeup
+  if (!write_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to configure button wakeup");
+    return false;
+  }
+
+  LOG_I("Power button wakeup configured");
   return true;
 }
 
@@ -204,7 +291,41 @@ bool M5Paper3PowerManager::configure_timer_wakeup(uint32_t duration_ms)
     return false;
   }
 
-  // TODO: Configure timer-based wakeup
+  // Timer wakeup configuration in SLEEP_CONFIG (0x31)
+  // Bits 5-4: Timer select (00=none, 01=8s, 10=16s, 11=32s)
+  // Bit 6: Deep sleep enable
+  // Bit 7: Button wakeup enable
+  
+  // Map duration_ms to timer value
+  uint8_t timer_val = 0;  // No timer by default
+  
+  if (duration_ms >= 32000) {
+    timer_val = 0x30;  // 32 seconds
+  } else if (duration_ms >= 16000) {
+    timer_val = 0x20;  // 16 seconds
+  } else if (duration_ms >= 8000) {
+    timer_val = 0x10;  // 8 seconds
+  } else if (duration_ms > 0) {
+    // For durations < 8 seconds, use 8 second timer
+    timer_val = 0x10;
+  }
+
+  // Read current config and update timer bits
+  uint8_t sleep_config;
+  if (!read_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to read sleep config");
+    return false;
+  }
+
+  // Clear timer bits (5-4) and set new value
+  sleep_config = (sleep_config & 0xCF) | timer_val;
+  
+  if (!write_register(REG_SLEEP_CONFIG, sleep_config)) {
+    LOG_E("Failed to configure timer wakeup");
+    return false;
+  }
+
+  LOG_I("Timer wakeup configured: %u ms", duration_ms);
   return true;
 }
 
@@ -261,7 +382,12 @@ void M5Paper3PowerManager::parse_voltage(uint8_t msb, uint8_t lsb, float & volta
 
 void M5Paper3PowerManager::parse_temperature(uint8_t msb, uint8_t lsb, float & temperature)
 {
-  // TODO: Convert MSB/LSB to temperature value
-  // AXP2101 specific conversion formula
-  temperature = 0.0f;
+  // AXP2101 temperature conversion
+  // TEMP_H (0x56): bits 7-0 = temperature integer part
+  // TEMP_L (0x57): bits 7-4 = temperature fractional part (x 0.0625°C)
+  // Range: -30°C to +85°C
+  
+  int8_t temp_int = static_cast<int8_t>(msb);
+  float temp_frac = ((lsb >> 4) & 0x0F) * 0.0625f;
+  temperature = temp_int + temp_frac;
 }
