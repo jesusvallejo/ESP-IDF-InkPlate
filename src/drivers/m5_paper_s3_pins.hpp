@@ -103,4 +103,4 @@ namespace M5Paper3Pins {
 
 }  // namespace M5Paper3Pins
 
-#endif
+#endif  // M5_PAPER_S3_PINS_HPP

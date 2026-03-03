@@ -29,7 +29,7 @@ bool
 
   #if M5_PAPER_S3
     // Initialize power manager first (required by battery)
-    if (!power_manager.init(I2C_NUM_0)) {
+    if (!power_manager.init()) {
       ESP_LOGE(TAG, "Power manager initialization failed!");
       return false;
     }

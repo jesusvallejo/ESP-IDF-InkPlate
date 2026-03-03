@@ -77,14 +77,16 @@ class M5Paper3 : public EInk, NonCopyable
     static constexpr char const * TAG = "M5Paper3";
 
     // Frame buffer implementation (4-bit grayscale)
-    class FrameBuffer4BitX : public FrameBuffer4Bit {
-      private:
-        uint8_t data[BITMAP_SIZE_4BIT];
-      public:
-        FrameBuffer4BitX() : FrameBuffer4Bit(WIDTH, HEIGHT, BITMAP_SIZE_4BIT) {}
-       
-        uint8_t * get_data() { return data; }
-    };
+    // Note: FrameBuffer4Bit not defined in base class hierarchy
+    // Conversion from 1-bit/3-bit to 4-bit happens directly in update() methods
+    // TODO: Implement FrameBuffer4Bit in frame_buffer.hpp if needed
+    // class FrameBuffer4BitX : public FrameBuffer4Bit {
+    //   private:
+    //     uint8_t data[BITMAP_SIZE_4BIT];
+    //   public:
+    //     FrameBuffer4BitX() : FrameBuffer4Bit(WIDTH, HEIGHT, BITMAP_SIZE_4BIT) {}
+    //     uint8_t * get_data() { return data; }
+    // };
 
     // Driver initialization
     bool init_spi();
