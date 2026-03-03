@@ -229,7 +229,7 @@ bool M5Paper3::init_touch()
   LOG_I("I2C0 initialized: SDA=GPIO41, SCL=GPIO42, Speed=100kHz");
   
   // Configure GT911 interrupt pin (GPIO 48)
-  gpio_cfg = {};
+  gpio_config_t gpio_cfg = {};
   gpio_cfg.pin_bit_mask = 1ULL << GPIO_NUM_48;
   gpio_cfg.mode = GPIO_MODE_INPUT;
   gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
