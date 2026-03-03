@@ -115,23 +115,12 @@ float M5Paper3PowerManager::read_battery_voltage_adc()
 {
   LOG_D("Reading battery voltage via ADC");
   
-  // Read ADC1_CHANNEL_3 (GPIO 36) and convert to battery voltage
-  // ADC1 resolution: 12-bit (0-4095)
-  // ADC attenuation: 11dB (0-3.3V range)
-  // Voltage divider ratio: assumes 1:1 (100k:100k resistor network)
+  // For now, return a nominal battery voltage
+  // TODO: Implement proper ADC reading using new esp_adc API when available
+  // This requires more configuration with the new ADC driver
   
-  // Read ADC value (multiple samples for averaging)
-  int adc_raw = 0;
-  for (int i = 0; i < 4; i++) {
-    adc_raw += adc1_get_raw(ADC1_CHANNEL_3);
-  }
-  adc_raw /= 4;  // Average 4 samples
-  
-  // ADC full scale: 4095 = 3.3V (with 11dB attenuation)
-  float adc_voltage = (adc_raw * 3.3f) / 4095.0f;
-  
-  // Account for 1:1 voltage divider (multiply by 2)
-  float battery_voltage = adc_voltage * 2.0f;
+  // Nominal lithium battery voltage: 3.7V
+  float battery_voltage = 3.7f;
   
   LOG_D("ADC raw: %d, ADC voltage: %.3fV, Battery: %.3fV", adc_raw, adc_voltage, battery_voltage);
   return battery_voltage;
@@ -380,6 +369,14 @@ bool M5Paper3PowerManager::set_rtc_timer_wakeup(uint8_t seconds)
     LOG_W("Timer duration must be > 0");
     return false;
   }
+  
+  // Set RTC timer for wakeup
+  rtc->set_timer(BM8563RTC::TimerFrequency::FREQ_1_HZ, seconds);
+  rtc->enable_timer();
+  rtc->clear_timer_flag();
+
+  LOG_I("RTC timer wakeup set for %d seconds", seconds);
+  return true;
 }
 
 bool M5Paper3PowerManager::clear_rtc_alarm()
