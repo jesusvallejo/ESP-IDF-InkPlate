@@ -51,6 +51,7 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 
 using namespace M5Paper3Pins;
 
@@ -387,8 +388,12 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   
   LOG_D("Converting 1-bit frame buffer (%dx%d) to 4-bit for 16-level grayscale display", WIDTH, HEIGHT);
   
-  // Allocate temporary 4-bit buffer for conversion
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
   // Simple 1-bit to 4-bit conversion (no dithering - just 0→0, 1→15)
   const uint8_t * src = frame_buffer.get_data();
@@ -415,6 +420,7 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode (16-level update)
   
+  free(conversion_buffer);
   LOG_D("1-bit update complete");
 }
 
@@ -431,8 +437,12 @@ void M5Paper3::update(FrameBuffer2Bit & frame_buffer)
   
   LOG_D("Converting 2-bit frame buffer (%dx%d) to 4-bit for 16-level grayscale", WIDTH, HEIGHT);
   
-  // Allocate temporary 4-bit buffer for conversion
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
   const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
@@ -463,6 +473,7 @@ void M5Paper3::update(FrameBuffer2Bit & frame_buffer)
   load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
   
+  free(conversion_buffer);
   LOG_D("2-bit update complete");
 }
 
@@ -483,8 +494,12 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
   
   LOG_D("Converting 3-bit frame buffer (%dx%d) from InkPlate to 4-bit for 16-level grayscale", WIDTH, HEIGHT);
   
-  // Allocate temporary 4-bit buffer for conversion
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
   const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
@@ -510,6 +525,7 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
   load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
   
+  free(conversion_buffer);
   LOG_D("3-bit update complete");
 }
 
@@ -526,7 +542,11 @@ void M5Paper3::partial_update(FrameBuffer1Bit & frame_buffer, bool force)
   }
   
   // Convert 1-bit framebuffer to 4-bit
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
   const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
