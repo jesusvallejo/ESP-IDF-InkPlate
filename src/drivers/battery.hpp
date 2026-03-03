@@ -9,6 +9,8 @@
   #else
     #include "mcp23017.hpp"
   #endif
+#else
+  #include "m5_paper_s3_power.hpp"
 #endif
 
 class Battery : NonCopyable
@@ -17,7 +19,7 @@ class Battery : NonCopyable
 #if !M5_PAPER_S3
     Battery(IOExpander & _io_expander) : io_expander(_io_expander) {}
 #else
-    Battery() {}
+    Battery(M5Paper3PowerManager & _power_manager) : power_manager(_power_manager) {}
 #endif
     bool setup();
 
@@ -29,6 +31,8 @@ class Battery : NonCopyable
     IOExpander & io_expander;
 
     const IOExpander::Pin BATTERY_SWITCH = IOExpander::Pin::IOPIN_9;
+#else
+    M5Paper3PowerManager & power_manager;
 #endif
 
     adc_oneshot_unit_handle_t adc_handle;

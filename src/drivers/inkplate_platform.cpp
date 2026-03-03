@@ -27,7 +27,19 @@ bool
     return false;
   }
 
-  #if !M5_PAPER_S3
+  #if M5_PAPER_S3
+    // Initialize power manager first (required by battery)
+    if (!power_manager.init(I2C_NUM_0)) {
+      ESP_LOGE(TAG, "Power manager initialization failed!");
+      return false;
+    }
+
+    // Battery
+    if (!battery.setup()) {
+      ESP_LOGE(TAG, "Battery setup not completed!");
+      return false;
+    }
+  #else
     // Battery
     if (!battery.setup()) {
       ESP_LOGE(TAG, "Battery setup not completed!");

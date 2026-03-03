@@ -28,6 +28,7 @@ Distributed as-is; no warranty is given.
 #include "eink.hpp"
 #if M5_PAPER_S3
   #include "m5_paper_s3.hpp"
+  #include "m5_paper_s3_power.hpp"
 #else
   #include "eink_6.hpp"
   #include "eink_6plus.hpp"
@@ -64,7 +65,9 @@ Distributed as-is; no warranty is given.
 #if __INKPLATE_PLATFORM__
   #if M5_PAPER_S3
     // M5 Paper S3: No IOExpander, uses direct GPIO
-    M5Paper3 e_ink;
+    M5Paper3PowerManager power_manager;
+    Battery              battery(power_manager);
+    M5Paper3             e_ink;
   #else
     IOExpander  io_expander_int(0x20);
     Battery     battery(io_expander_int);
@@ -100,7 +103,9 @@ Distributed as-is; no warranty is given.
   RTC       rtc(0x51);
 #else
   #if M5_PAPER_S3
-    extern M5Paper3 e_ink;
+    extern M5Paper3PowerManager power_manager;
+    extern Battery              battery;
+    extern M5Paper3             e_ink;
   #else
     extern IOExpander  io_expander_int;
     extern Battery     battery;
