@@ -19,7 +19,9 @@ This code is released under the GNU Lesser General Public License v3.0
 #include "m5_paper_s3_power.hpp"
 #include "m5_paper_s3_rtc.hpp"
 #include "logging.hpp"
-#include "driver/adc.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "driver/gpio.h"
 #include "esp_sleep.h"
 

@@ -99,9 +99,7 @@ bool M5Paper3::init_spi()
   // Control:   XSTL(13), XLE(15), SPV(17), CKV(18), PWR(45)
   
   // Initialize GPIO pins for 8-bit parallel data bus
-  gpio_config_t gpio_cfg = {0};
-  
-  // Data bus pins (DB0-DB7)
+  gpio_config_t gpio_cfg = {};
   gpio_cfg.pin_bit_mask = (1ULL << GPIO_NUM_6)  |  // DB0
                           (1ULL << GPIO_NUM_14) |  // DB1
                           (1ULL << GPIO_NUM_7)  |  // DB2
@@ -113,17 +111,22 @@ bool M5Paper3::init_spi()
   gpio_cfg.mode = GPIO_MODE_OUTPUT;
   gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_cfg.intr_type = GPIO_INTR_DISABLE;
   gpio_config(&gpio_cfg);
   
   LOG_D("EPD data bus configured (GPIO 6,14,7,12,9,11,8,10 = DB0-DB7)");
   
   // Control signal pins
+  gpio_cfg = {};
   gpio_cfg.pin_bit_mask = (1ULL << GPIO_NUM_13) |  // XSTL (Strobe)
                           (1ULL << GPIO_NUM_15) |  // XLE (Latch Enable)
                           (1ULL << GPIO_NUM_17) |  // SPV (Start Pulse)
                           (1ULL << GPIO_NUM_18) |  // CKV (Clock)
                           (1ULL << GPIO_NUM_45);   // PWR (Output Enable)
   gpio_cfg.mode = GPIO_MODE_OUTPUT;
+  gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_cfg.intr_type = GPIO_INTR_DISABLE;
   gpio_config(&gpio_cfg);
   
   // Initialize all control signals to LOW
@@ -202,13 +205,14 @@ bool M5Paper3::init_touch()
   // - Also on same I2C bus: BM8563 (RTC), BMI270 (IMU)
   
   // Initialize I2C0 if not already done
-  i2c_config_t i2c_cfg = {0};
+  i2c_config_t i2c_cfg = {};
   i2c_cfg.mode = I2C_MODE_MASTER;
   i2c_cfg.sda_io_num = GPIO_NUM_41;
   i2c_cfg.scl_io_num = GPIO_NUM_42;
   i2c_cfg.master.clk_speed = 100000;
   i2c_cfg.sda_pullup_en = GPIO_PULLUP_ENABLE;
   i2c_cfg.scl_pullup_en = GPIO_PULLUP_ENABLE;
+  i2c_cfg.clk_flags = 0;
   
   esp_err_t err = i2c_param_config(I2C_NUM_0, &i2c_cfg);
   if (err != ESP_OK) {
@@ -225,12 +229,12 @@ bool M5Paper3::init_touch()
   LOG_I("I2C0 initialized: SDA=GPIO41, SCL=GPIO42, Speed=100kHz");
   
   // Configure GT911 interrupt pin (GPIO 48)
-  gpio_config_t gpio_cfg = {0};
+  gpio_cfg = {};
   gpio_cfg.pin_bit_mask = 1ULL << GPIO_NUM_48;
   gpio_cfg.mode = GPIO_MODE_INPUT;
   gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  gpio_cfg.intr_type = GPIO_INTR_FALLING;  // Interrupt on falling edge
+  gpio_cfg.intr_type = GPIO_INTR_NEGEDGE;  // Interrupt on falling edge
   gpio_config(&gpio_cfg);
   
   LOG_D("GT911 interrupt pin configured: GPIO 48 (falling edge)");
@@ -387,10 +391,10 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
   
   // Simple 1-bit to 4-bit conversion (no dithering - just 0→0, 1→15)
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
-  for (size_t i = 0; i < frame_buffer.get_buffer_size(); i++) {
+  for (size_t i = 0; i < frame_buffer.get_data_size(); i++) {
     uint8_t src_byte = src[i];
     
     // Convert 8 monochrome pixels to 4 grayscale pixels (2 per output byte)
@@ -434,7 +438,7 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
   // Allocate temporary 4-bit buffer for conversion
   static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
   
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
   // 3-bit packing: Each 8 bits contains ~2.67 pixels (12 bits per 4 pixels)
@@ -443,7 +447,7 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
     // This is simplified - actual 3-bit extraction would need bit manipulation
     // For now, treat as unpacked bytes in source
     
-    if (pixel < frame_buffer.get_buffer_size()) {
+    if (pixel < frame_buffer.get_data_size()) {
       uint8_t pixel1 = (src[pixel] & 0x0F) * 2;      // Lower nibble, scale 0-7 → 0-14
       uint8_t pixel2 = ((src[pixel] >> 4) & 0x0F) * 2;  // Upper nibble
       
@@ -476,12 +480,12 @@ void M5Paper3::partial_update(FrameBuffer1Bit & frame_buffer, bool force)
   // Convert 1-bit framebuffer to 4-bit
   static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
   
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
   LOG_D("Converting 1-bit frame buffer to 4-bit for partial update");
   
-  for (size_t i = 0; i < frame_buffer.get_buffer_size(); i++) {
+  for (size_t i = 0; i < frame_buffer.get_data_size(); i++) {
     uint8_t src_byte = src[i];
     
     // Convert 8 monochrome pixels to 4 grayscale pixels (2 per output byte)
