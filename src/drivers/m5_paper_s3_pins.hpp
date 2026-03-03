@@ -102,5 +102,3 @@ namespace M5Paper3Pins {
   static constexpr gpio_num_t BUTTON_GPIO = GPIO_NUM_0;       // Physical power button (press = GND)
 
 }  // namespace M5Paper3Pins
-
-#endif  // M5_PAPER_S3_PINS_HPP
