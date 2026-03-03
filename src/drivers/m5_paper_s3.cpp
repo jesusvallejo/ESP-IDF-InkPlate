@@ -464,6 +464,7 @@ void M5Paper3::update(FrameBuffer2Bit & frame_buffer)
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
   
   LOG_D("2-bit update complete");
+}
 
 void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
 {
