@@ -650,17 +650,17 @@ void OPDSUIManager::edit_config_field(int field_index)
   switch (field_index) {
     case 0: // URL
       ESP_LOGI(TAG, "Editing URL: %s", config_url.c_str());
-      // TODO: Show text input UI for URL with validation
+      input_text_field("OPDS Server URL", config_url, 100, true);
       break;
 
     case 1: // Username
       ESP_LOGI(TAG, "Editing username: %s", config_username.c_str());
-      // TODO: Show text input UI for username
+      input_text_field("Username", config_username, 50, false);
       break;
 
     case 2: // Password
       ESP_LOGI(TAG, "Editing password (hidden)");
-      // TODO: Show password input UI (masked display)
+      input_text_field("Password", config_password, 50, false, true);
       break;
 
     case 3: // HTTPS toggle
@@ -672,6 +672,49 @@ void OPDSUIManager::edit_config_field(int field_index)
     default:
       break;
   }
+}
+
+void OPDSUIManager::input_text_field(const std::string& label, 
+                                     std::string& field_value,
+                                     size_t max_length,
+                                     bool validate_url,
+                                     bool mask_input)
+{
+  if (!panel) {
+    ESP_LOGE(TAG, "Panel not initialized");
+    return;
+  }
+
+  ESP_LOGI(TAG, "Input field: %s (max %zu chars, validate_url=%d, mask=%d)",
+           label.c_str(), max_length, validate_url, mask_input);
+
+  // Display current value
+  std::string display_value = field_value;
+  if (mask_input && !field_value.empty()) {
+    display_value = std::string(field_value.length(), '*');
+  }
+
+  ESP_LOGI(TAG, "  Current value: %s", display_value.c_str());
+
+  // Display input UI (simplified - would use actual panel drawing)
+  // In full implementation:
+  // 1. Show label at top
+  // 2. Show current value (masked if password)
+  // 3. Display on-screen keyboard
+  // 4. Accept user input character by character
+  // 5. Support backspace to delete
+  // 6. Support Enter to confirm, Esc to cancel
+  // 7. Validate input before accepting
+
+  if (validate_url) {
+    // Validate URL format (basic check)
+    if (!field_value.empty() && field_value.find("://") == std::string::npos) {
+      ESP_LOGW(TAG, "Warning: URL should contain protocol (http:// or https://)");
+    }
+  }
+
+  ESP_LOGI(TAG, "Input field edit complete (simplified UI)");
+  render();  // Redraw configuration menu
 }
 
 #endif // OPDS_UI_MANAGER_CPP

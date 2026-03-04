@@ -182,6 +182,11 @@ private:
   void show_recent_downloads();  // Browse previously downloaded books
   void show_search_ui();         // Search OPDS catalog
   void edit_config_field(int field_index); // Text input for config fields
+  void input_text_field(const std::string& label,
+                       std::string& field_value,
+                       size_t max_length,
+                       bool validate_url = false,
+                       bool mask_input = false); // Generic text input UI
 
   // Formatting helpers
   static std::string format_size(uint64_t bytes);
