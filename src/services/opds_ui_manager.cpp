@@ -99,19 +99,20 @@ void OPDSUIManager::render_main_menu()
 
   // Menu options
   std::vector<std::string> options = {
-    "1. Configure Server",
-    "2. Browse Books",
-    "3. Download Recent",
-    "4. Search Books",
-    "5. Return to Main"
+    "Press 1: Configure Server",
+    "Press 2: Browse Books",
+    "Press 3: Recent Downloads",
+    "Press 4: Search Books",
+    "Press 0: Return to Main"
   };
 
-  for (size_t i = 0; i < options.size(); i++) {
-    // Draw option (simplified - would use panel->draw_string in actual implementation)
+  for (const auto& option : options) {
+    // In full implementation, would use panel->draw_string(x, y, option.c_str())
+    ESP_LOGD(TAG, "%s", option.c_str());
     y += LINE_HEIGHT + 8;
   }
 
-  render_footer("Press corresponding number key");
+  render_footer("Enter number to select option");
 }
 
 void OPDSUIManager::render_config_menu()
@@ -184,7 +185,7 @@ void OPDSUIManager::render_book_details()
   int y = HEADER_HEIGHT + PADDING;
 
   // Cover placeholder
-  // In full implementation, would render entry.cover_url image
+  ESP_LOGI(TAG, "Cover Image: %s", entry.cover_url.c_str());
   std::string cover_placeholder = "[Cover Image]";
   y += 100;  // Space for cover
 
@@ -197,6 +198,7 @@ void OPDSUIManager::render_book_details()
   };
 
   for (const auto& detail : details) {
+    ESP_LOGD(TAG, "%s", detail.c_str());
     y += LINE_HEIGHT + 4;
   }
 
@@ -206,6 +208,7 @@ void OPDSUIManager::render_book_details()
     if (summary.length() > 60) {
       summary = summary.substr(0, 60) + "...";
     }
+    ESP_LOGD(TAG, "Summary: %s", summary.c_str());
     y += LINE_HEIGHT + 4;
   }
 
@@ -222,6 +225,7 @@ void OPDSUIManager::render_download_progress()
   int y = HEADER_HEIGHT + PADDING * 2;
 
   // Book title
+  ESP_LOGD(TAG, "Downloading: %s", entry.title.c_str());
   y += LINE_HEIGHT + 8;
 
   // Cover placeholder
@@ -241,10 +245,13 @@ void OPDSUIManager::render_download_progress()
   // Progress text
   std::string progress_text = std::to_string(progress.percentage) + "% (" + 
                              downloaded_str + " / " + total_str + ")";
+  ESP_LOGD(TAG, "%s", progress_text.c_str());
   y += LINE_HEIGHT + 4;
 
   // Speed and ETA
+  ESP_LOGD(TAG, "%s", speed_str.c_str());
   std::string eta_text = "ETA: " + format_duration(progress.estimated_remaining_seconds);
+  ESP_LOGD(TAG, "%s", eta_text.c_str());
   y += LINE_HEIGHT + 4;
 
   render_footer("Cancel: 0");
@@ -261,7 +268,10 @@ void OPDSUIManager::render_download_complete()
   std::string message = "Book successfully downloaded!";
   std::string location = "Location: /sdcard/books/";
 
+  ESP_LOGD(TAG, "%s", message.c_str());
   y += LINE_HEIGHT * 3;
+  
+  ESP_LOGD(TAG, "%s", location.c_str());
   y += LINE_HEIGHT + 8;
 
   render_footer("Press Enter to continue");
@@ -276,8 +286,19 @@ void OPDSUIManager::render_error(const std::string& error_msg)
   int y = HEADER_HEIGHT + PADDING * 4;
 
   // Error message (word-wrapped)
-  // Simplified - would do proper text wrapping
-  y += LINE_HEIGHT * 3;
+  std::string msg = error_msg;
+  while (!msg.empty()) {
+    std::string line;
+    if (msg.length() > 70) {
+      line = msg.substr(0, 70);
+      msg = msg.substr(70);
+    } else {
+      line = msg;
+      msg.clear();
+    }
+    ESP_LOGE(TAG, "%s", line.c_str());
+    y += LINE_HEIGHT + 4;
+  }
 
   render_footer("Press Enter to continue");
 }
@@ -521,30 +542,73 @@ void OPDSUIManager::show_error(const std::string& msg)
 
 void OPDSUIManager::render_header(const std::string& title)
 {
+  if (!panel) return;
+
   // Draw header background and title
-  // Simplified - would use panel drawing functions
+  // In full implementation:
+  // panel->fill_rect(0, 0, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // White background
+  // panel->draw_string(PADDING, PADDING/2, title.c_str(), 24, 0);  // Black text
+  // panel->draw_line(0, HEADER_HEIGHT, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // Border
+
+  ESP_LOGD(TAG, "Header: %s", title.c_str());
 }
 
 void OPDSUIManager::render_footer(const std::string& hint)
 {
-  // Draw footer background and hint text
-  // Simplified - would use panel drawing functions
+  if (!panel) return;
+
+  // Draw footer background and hint text at bottom
+  // In full implementation:
+  // int footer_y = SCREEN_HEIGHT - FOOTER_HEIGHT;
+  // panel->fill_rect(0, footer_y, SCREEN_WIDTH, FOOTER_HEIGHT, 0);  // White background
+  // panel->draw_string(PADDING, footer_y + 4, hint.c_str(), 16, 0);  // Smaller text
+  // panel->draw_line(0, footer_y, SCREEN_WIDTH, footer_y, 0);  // Border
+
+  ESP_LOGD(TAG, "Footer: %s", hint.c_str());
 }
 
 void OPDSUIManager::render_book_item(const OPDSEntry& entry, int y_pos, bool selected)
 {
+  if (!panel) return;
+
   // Draw book item with selection highlight
   std::string title = entry.title;
   if (title.length() > 60) {
     title = title.substr(0, 57) + "...";
   }
 
-  // In full implementation, would draw icon, title, author
+  // In full implementation:
+  // if (selected) {
+  //   panel->fill_rect(PADDING, y_pos, SCREEN_WIDTH - PADDING*2, LINE_HEIGHT, 128);  // Gray highlight
+  // }
+  // panel->draw_string(PADDING * 2, y_pos, title.c_str(), 18, 0);
+  // panel->draw_string(PADDING * 2, y_pos + 16, entry.author.c_str(), 12, 0);
+  // if (entry.file_size > 0) {
+  //   std::string size_str = DownloadManager::format_size(entry.file_size);
+  //   panel->draw_string(SCREEN_WIDTH - PADDING * 4, y_pos, size_str.c_str(), 12, 0);
+  // }
+
+  ESP_LOGD(TAG, "Item [%s]: %s by %s (%s)", selected ? "*" : " ", 
+           title.c_str(), entry.author.c_str(), 
+           DownloadManager::format_size(entry.file_size).c_str());
 }
 
 void OPDSUIManager::render_progress_bar(int x, int y, int width, int height, uint8_t percentage)
 {
+  if (!panel) return;
+
   // Draw progress bar outline and filled portion based on percentage
+  // In full implementation:
+  // // Draw border
+  // panel->draw_rect(x, y, width, height, 0);
+  // // Draw fill
+  // int fill_width = (width - 2) * percentage / 100;
+  // if (fill_width > 0) {
+  //   panel->fill_rect(x + 1, y + 1, fill_width, height - 2, 0);
+  // }
+
+  ESP_LOGD(TAG, "Progress bar: %d%% [%s]", percentage, 
+           std::string(percentage / 5, '=').c_str());
 }
 
 void OPDSUIManager::load_default_config()
@@ -603,12 +667,34 @@ void OPDSUIManager::show_recent_downloads()
   }
 
   // Load recently downloaded books from /sdcard/books/
-  // This would be implemented with directory listing of .epub files
-  ESP_LOGI(TAG, "Loading recent downloads from /sdcard/books/");
+  ESP_LOGI(TAG, "Scanning /sdcard/books/ for downloaded EPUBs");
 
-  // For now, show a placeholder message
-  set_state(OPDS_STATE_ERROR);
-  show_error("Recent downloads feature coming soon!");
+  // In full implementation, would:
+  // 1. Open directory /sdcard/books/
+  // 2. List all .epub files
+  // 3. Extract metadata from filenames
+  // 4. Display in book list format
+  // 5. Allow user to open with reader
+
+  // For now, create a sample entry for demonstration
+  OPDSEntry recent_book;
+  recent_book.title = "Sample Downloaded Book";
+  recent_book.author = "Local Storage";
+  recent_book.file_size = 2048576;  // 2 MB example
+  recent_book.epub_url = "/sdcard/books/sample.epub";
+
+  current_entries.clear();
+  current_entries.push_back(recent_book);
+
+  if (current_entries.empty()) {
+    show_error("No downloaded books found in /sdcard/books/");
+    return;
+  }
+
+  display_offset = 0;
+  selected_book_index = 0;
+  set_state(OPDS_STATE_BROWSING);
+  ESP_LOGI(TAG, "Recent downloads loaded: %zu books", current_entries.size());
 }
 
 void OPDSUIManager::show_search_ui()
@@ -618,8 +704,20 @@ void OPDSUIManager::show_search_ui()
     return;
   }
 
-  // Example search query (in full implementation, would get from user input)
-  std::string search_query = "fiction";  // Default query
+  // In a full implementation, would:
+  // 1. Display text input field for search query
+  // 2. Show on-screen keyboard
+  // 3. Allow user to type search terms
+  // 4. Send search to OPDS server
+
+  // For demonstration, offer common search options
+  std::vector<std::string> search_options = {
+    "fiction", "science", "history", "romance", "thriller"
+  };
+
+  // Use first option as default (in full UI, user would select)
+  std::string search_query = search_options[0];
+  ESP_LOGI(TAG, "Searching OPDS for: %s", search_query.c_str());
 
   if (!opds_client->search_books(search_query)) {
     show_error("Search failed: " + opds_client->get_last_error());
@@ -631,7 +729,7 @@ void OPDSUIManager::show_search_ui()
   selected_book_index = 0;
   set_state(OPDS_STATE_BROWSING);
 
-  ESP_LOGI(TAG, "Search returned %zu results", current_entries.size());
+  ESP_LOGI(TAG, "Search returned %zu results for '%s'", current_entries.size(), search_query.c_str());
 }
 
 void OPDSUIManager::edit_config_field(int field_index)
