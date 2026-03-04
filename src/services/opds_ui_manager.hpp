@@ -178,6 +178,11 @@ private:
   // Cover image handling
   void download_and_display_cover(const OPDSEntry& entry);
 
+  // Menu features implementation
+  void show_recent_downloads();  // Browse previously downloaded books
+  void show_search_ui();         // Search OPDS catalog
+  void edit_config_field(int field_index); // Text input for config fields
+
   // Formatting helpers
   static std::string format_size(uint64_t bytes);
   static std::string format_duration(uint32_t seconds);

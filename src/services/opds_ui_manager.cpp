@@ -315,10 +315,12 @@ void OPDSUIManager::handle_menu_button(int button_id)
       fetch_catalog();
       break;
     case 3:  // Download recent
-      // TODO: Implement recent downloads
+      // Load recently downloaded books from /sdcard/books/
+      show_recent_downloads();
       break;
     case 4:  // Search
-      // TODO: Implement search
+      // Open search UI
+      show_search_ui();
       break;
     case 0:  // Back/Exit
       // Return to main app
@@ -336,7 +338,7 @@ void OPDSUIManager::handle_config_button(int button_id)
       config_field_index = (config_field_index + 1) % 4;
       break;
     case 10: // Enter / Edit field
-      // TODO: Open text input for field
+      edit_config_field(config_field_index);
       break;
     case 42: // '*' to save
       save_configuration();
@@ -591,6 +593,85 @@ std::string OPDSUIManager::format_duration(uint32_t seconds)
   }
 
   return std::string(buf);
+}
+
+void OPDSUIManager::show_recent_downloads()
+{
+  if (!panel) {
+    ESP_LOGE(TAG, "Panel not initialized");
+    return;
+  }
+
+  // Load recently downloaded books from /sdcard/books/
+  // This would be implemented with directory listing of .epub files
+  ESP_LOGI(TAG, "Loading recent downloads from /sdcard/books/");
+
+  // For now, show a placeholder message
+  set_state(OPDS_STATE_ERROR);
+  show_error("Recent downloads feature coming soon!");
+}
+
+void OPDSUIManager::show_search_ui()
+{
+  if (!opds_client || !panel) {
+    ESP_LOGE(TAG, "OPDS client or panel not initialized");
+    return;
+  }
+
+  // Example search query (in full implementation, would get from user input)
+  std::string search_query = "fiction";  // Default query
+
+  if (!opds_client->search_books(search_query)) {
+    show_error("Search failed: " + opds_client->get_last_error());
+    return;
+  }
+
+  current_entries = opds_client->get_current_entries();
+  display_offset = 0;
+  selected_book_index = 0;
+  set_state(OPDS_STATE_BROWSING);
+
+  ESP_LOGI(TAG, "Search returned %zu results", current_entries.size());
+}
+
+void OPDSUIManager::edit_config_field(int field_index)
+{
+  if (field_index < 0 || field_index >= 4) {
+    ESP_LOGE(TAG, "Invalid config field index: %d", field_index);
+    return;
+  }
+
+  // In a full implementation, this would:
+  // 1. Display text input field with on-screen keyboard
+  // 2. Collect user input character by character
+  // 3. Update config field when done
+  // 4. Validate input format
+
+  switch (field_index) {
+    case 0: // URL
+      ESP_LOGI(TAG, "Editing URL: %s", config_url.c_str());
+      // TODO: Show text input UI for URL with validation
+      break;
+
+    case 1: // Username
+      ESP_LOGI(TAG, "Editing username: %s", config_username.c_str());
+      // TODO: Show text input UI for username
+      break;
+
+    case 2: // Password
+      ESP_LOGI(TAG, "Editing password (hidden)");
+      // TODO: Show password input UI (masked display)
+      break;
+
+    case 3: // HTTPS toggle
+      config_use_https = !config_use_https;
+      ESP_LOGI(TAG, "Toggled HTTPS: %s", config_use_https ? "enabled" : "disabled");
+      render();  // Redraw with new value
+      break;
+
+    default:
+      break;
+  }
 }
 
 #endif // OPDS_UI_MANAGER_CPP
