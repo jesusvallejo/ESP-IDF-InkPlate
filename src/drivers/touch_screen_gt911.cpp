@@ -4,6 +4,8 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <cstring>
 
 static const char * TAG = "GT911";
