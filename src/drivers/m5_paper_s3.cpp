@@ -48,13 +48,20 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 #include "m5_paper_s3.hpp"
 #include "m5_paper_s3_pins.hpp"
 #include "logging.hpp"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
+#include <cstring>
 
 using namespace M5Paper3Pins;
 
 static constexpr char const * TAG = "M5Paper3";
+
+// I2C Master handles for GT911 touch and other I2C devices on bus 0
+// Declared extern so other drivers (GT911) can access them
+i2c_master_bus_handle_t i2c_bus_handle = NULL;
+i2c_master_dev_handle_t gt911_device_handle = NULL;
 
 M5Paper3::M5Paper3()
 {
@@ -99,9 +106,7 @@ bool M5Paper3::init_spi()
   // Control:   XSTL(13), XLE(15), SPV(17), CKV(18), PWR(45)
   
   // Initialize GPIO pins for 8-bit parallel data bus
-  gpio_config_t gpio_cfg = {0};
-  
-  // Data bus pins (DB0-DB7)
+  gpio_config_t gpio_cfg = {};
   gpio_cfg.pin_bit_mask = (1ULL << GPIO_NUM_6)  |  // DB0
                           (1ULL << GPIO_NUM_14) |  // DB1
                           (1ULL << GPIO_NUM_7)  |  // DB2
@@ -113,17 +118,22 @@ bool M5Paper3::init_spi()
   gpio_cfg.mode = GPIO_MODE_OUTPUT;
   gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_cfg.intr_type = GPIO_INTR_DISABLE;
   gpio_config(&gpio_cfg);
   
   LOG_D("EPD data bus configured (GPIO 6,14,7,12,9,11,8,10 = DB0-DB7)");
   
   // Control signal pins
+  gpio_cfg = {};
   gpio_cfg.pin_bit_mask = (1ULL << GPIO_NUM_13) |  // XSTL (Strobe)
                           (1ULL << GPIO_NUM_15) |  // XLE (Latch Enable)
                           (1ULL << GPIO_NUM_17) |  // SPV (Start Pulse)
                           (1ULL << GPIO_NUM_18) |  // CKV (Clock)
                           (1ULL << GPIO_NUM_45);   // PWR (Output Enable)
   gpio_cfg.mode = GPIO_MODE_OUTPUT;
+  gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_cfg.intr_type = GPIO_INTR_DISABLE;
   gpio_config(&gpio_cfg);
   
   // Initialize all control signals to LOW
@@ -202,45 +212,65 @@ bool M5Paper3::init_touch()
   // - Also on same I2C bus: BM8563 (RTC), BMI270 (IMU)
   
   // Initialize I2C0 if not already done
-  i2c_config_t i2c_cfg = {0};
-  i2c_cfg.mode = I2C_MODE_MASTER;
-  i2c_cfg.sda_io_num = GPIO_NUM_41;
-  i2c_cfg.scl_io_num = GPIO_NUM_42;
-  i2c_cfg.master.clk_speed = 100000;
-  i2c_cfg.sda_pullup_en = GPIO_PULLUP_ENABLE;
-  i2c_cfg.scl_pullup_en = GPIO_PULLUP_ENABLE;
+  esp_err_t err = ESP_OK;
   
-  esp_err_t err = i2c_param_config(I2C_NUM_0, &i2c_cfg);
-  if (err != ESP_OK) {
-    LOG_E("I2C0 param config failed: %s", esp_err_to_name(err));
-    return false;
+  if (i2c_bus_handle == NULL) {
+    // Configure I2C master bus
+    i2c_master_bus_config_t i2c_mst_config = {};
+    memset(&i2c_mst_config, 0, sizeof(i2c_mst_config));
+    i2c_mst_config.i2c_port = I2C_NUM_0;
+    i2c_mst_config.sda_io_num = GPIO_NUM_41;
+    i2c_mst_config.scl_io_num = GPIO_NUM_42;
+    i2c_mst_config.clk_source = I2C_CLK_SRC_DEFAULT;
+    i2c_mst_config.glitch_ignore_cnt = 7;
+    i2c_mst_config.intr_priority = 0;
+    i2c_mst_config.trans_queue_depth = 0;
+    i2c_mst_config.flags.enable_internal_pullup = true;
+    
+    err = i2c_new_master_bus(&i2c_mst_config, &i2c_bus_handle);
+    if (err != ESP_OK) {
+      LOG_E("I2C0 master bus init failed: %s", esp_err_to_name(err));
+      return false;
+    }
+    
+    LOG_I("I2C0 master bus initialized: SDA=GPIO41, SCL=GPIO42");
   }
   
-  err = i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {  // Already installed is OK
-    LOG_E("I2C0 driver install failed: %s", esp_err_to_name(err));
-    return false;
+  if (gt911_device_handle == NULL) {
+    // Configure GT911 device on I2C0 bus
+    i2c_device_config_t dev_cfg = {};
+    memset(&dev_cfg, 0, sizeof(dev_cfg));
+    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_cfg.device_address = 0x14;  // GT911 I2C address
+    dev_cfg.scl_speed_hz = 100000;  // 100 kHz
+    dev_cfg.scl_wait_us = 1000;
+    dev_cfg.flags.disable_ack_check = false;
+    
+    err = i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &gt911_device_handle);
+    if (err != ESP_OK) {
+      LOG_E("GT911 device add to I2C0 failed: %s", esp_err_to_name(err));
+      return false;
+    }
+    
+    LOG_I("GT911 device added to I2C0 bus at address 0x14");
   }
-  
-  LOG_I("I2C0 initialized: SDA=GPIO41, SCL=GPIO42, Speed=100kHz");
   
   // Configure GT911 interrupt pin (GPIO 48)
-  gpio_config_t gpio_cfg = {0};
+  gpio_config_t gpio_cfg = {};
   gpio_cfg.pin_bit_mask = 1ULL << GPIO_NUM_48;
   gpio_cfg.mode = GPIO_MODE_INPUT;
   gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  gpio_cfg.intr_type = GPIO_INTR_FALLING;  // Interrupt on falling edge
+  gpio_cfg.intr_type = GPIO_INTR_NEGEDGE;  // Interrupt on falling edge
   gpio_config(&gpio_cfg);
   
   LOG_D("GT911 interrupt pin configured: GPIO 48 (falling edge)");
   
   // Verify GT911 presence on I2C bus by reading a register
-  uint8_t i2c_addr = 0x14;
   uint8_t reg = 0x00;
   uint8_t data = 0;
   
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &reg, 1, &data, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &reg, 1, &data, 1, -1);
   if (err == ESP_OK) {
     LOG_I("GT911 detected on I2C0 at address 0x14, read config byte: 0x%02X", data);
     
@@ -252,7 +282,7 @@ bool M5Paper3::init_touch()
     }
   } else {
     LOG_W("GT911 not responding on I2C0 at address 0x14: %s", esp_err_to_name(err));
-    // Continue anyway - GTx911 may respond after firmware load or device reset
+    // Continue anyway - GT911 may respond after firmware load or device reset
   }
   
   LOG_I("GT911 touch driver initialized");
@@ -280,13 +310,18 @@ bool M5Paper3::load_gt911_firmware()
   //   - Max touch points: 10 (GT911 supports up to 10)
   //   - Firmware: Device-specific (obtain from M5Stack)
   
-  uint8_t i2c_addr = 0x14;
+  if (gt911_device_handle == NULL) {
+    LOG_E("GT911 device handle not initialized");
+    return false;
+  }
+  
+  esp_err_t err;
   
   // Step 1: Verify device is in bootloader mode or accessible for FW load
   // Read device ID to determine current state
   uint8_t dev_id_reg = 0x04;
   uint8_t device_id = 0;
-  esp_err_t err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &dev_id_reg, 1, &device_id, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &dev_id_reg, 1, &device_id, 1, -1);
   
   if (err != ESP_OK) {
     LOG_E("Could not read GT911 device ID: %s", esp_err_to_name(err));
@@ -303,7 +338,7 @@ bool M5Paper3::load_gt911_firmware()
   
   // X resolution configuration (960 = 0x03C0)
   uint8_t x_res_cfg[] = {0x04, 0xC0, 0x03};  // Register 0x04-0x05 = 960 (little-endian)
-  err = i2c_master_write_to_device(I2C_NUM_0, i2c_addr, x_res_cfg, sizeof(x_res_cfg), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit(gt911_device_handle, x_res_cfg, sizeof(x_res_cfg), -1);
   if (err != ESP_OK) {
     LOG_W("Failed to configure GT911 X resolution: %s", esp_err_to_name(err));
     // Continue anyway - may have default config
@@ -313,7 +348,7 @@ bool M5Paper3::load_gt911_firmware()
   
   // Y resolution configuration (540 = 0x021C)
   uint8_t y_res_cfg[] = {0x06, 0x1C, 0x02};  // Register 0x06-0x07 = 540 (little-endian)
-  err = i2c_master_write_to_device(I2C_NUM_0, i2c_addr, y_res_cfg, sizeof(y_res_cfg), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit(gt911_device_handle, y_res_cfg, sizeof(y_res_cfg), -1);
   if (err != ESP_OK) {
     LOG_W("Failed to configure GT911 Y resolution: %s", esp_err_to_name(err));
   } else {
@@ -324,7 +359,7 @@ bool M5Paper3::load_gt911_firmware()
   // GT911 typically stores calibration in registers 0x9E-0xA7 or similar
   uint8_t cal_data[10];
   uint8_t cal_reg = 0x9E;  // Typical calibration register start
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &cal_reg, 1, cal_data, sizeof(cal_data), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &cal_reg, 1, cal_data, sizeof(cal_data), -1);
   
   if (err == ESP_OK) {
     LOG_D("GT911 calibration data: [");
@@ -340,7 +375,7 @@ bool M5Paper3::load_gt911_firmware()
   // Touch status is typically at register 0x02
   uint8_t touch_status_reg = 0x02;
   uint8_t touch_status = 0;
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &touch_status_reg, 1, &touch_status, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &touch_status_reg, 1, &touch_status, 1, -1);
   
   if (err == ESP_OK) {
     LOG_I("GT911 touch status: 0x%02X (ready for operation)", touch_status);
@@ -383,14 +418,18 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   
   LOG_D("Converting 1-bit frame buffer (%dx%d) to 4-bit for 16-level grayscale display", WIDTH, HEIGHT);
   
-  // Allocate temporary 4-bit buffer for conversion
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
   // Simple 1-bit to 4-bit conversion (no dithering - just 0→0, 1→15)
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
-  for (size_t i = 0; i < frame_buffer.get_buffer_size(); i++) {
+  for (size_t i = 0; i < frame_buffer.get_data_size(); i++) {
     uint8_t src_byte = src[i];
     
     // Convert 8 monochrome pixels to 4 grayscale pixels (2 per output byte)
@@ -411,7 +450,61 @@ void M5Paper3::update(FrameBuffer1Bit & frame_buffer)
   load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode (16-level update)
   
+  free(conversion_buffer);
   LOG_D("1-bit update complete");
+}
+
+void M5Paper3::update(FrameBuffer2Bit & frame_buffer)
+{
+  // Convert 2-bit (4 levels) to 4-bit (16-level grayscale)
+  // 2-bit pixel values: 0-3 → 4-bit values: 0-15
+  // Scale: value_4bit = value_2bit * 5 (or approximately << 2 for 0, 5, 10, 15)
+  
+  if (!initialized) {
+    LOG_E("Display not initialized");
+    return;
+  }
+  
+  LOG_D("Converting 2-bit frame buffer (%dx%d) to 4-bit for 16-level grayscale", WIDTH, HEIGHT);
+  
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
+  
+  const uint8_t * src = frame_buffer.get_data();
+  uint8_t * dst = conversion_buffer;
+  
+  // 2-bit packing: Each 8 bits contains 4 pixels (2 bits per pixel)
+  for (size_t byte_idx = 0; byte_idx < frame_buffer.get_data_size(); byte_idx++) {
+    uint8_t src_byte = src[byte_idx];
+    
+    // Extract 4 x 2-bit pixels from this byte and convert to 4-bit
+    // Byte layout: [pixel0(2b)][pixel1(2b)][pixel2(2b)][pixel3(2b)]
+    for (int i = 0; i < 4; i++) {
+      uint8_t pixel_2bit = (src_byte >> (i * 2)) & 0x03;  // Extract 2-bit value (0-3)
+      uint8_t pixel_4bit = pixel_2bit * 5;  // Scale to 0-15 range
+      
+      if (i % 2 == 0) {
+        // Lower nibble
+        *dst = (pixel_4bit & 0x0F);
+      } else {
+        // Upper nibble
+        *dst = (*dst & 0x0F) | ((pixel_4bit & 0x0F) << 4);
+        dst++;
+      }
+    }
+  }
+  
+  // Send converted image to display
+  wait_for_display_ready();
+  load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
+  refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
+  
+  free(conversion_buffer);
+  LOG_D("2-bit update complete");
 }
 
 void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
@@ -431,10 +524,14 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
   
   LOG_D("Converting 3-bit frame buffer (%dx%d) from InkPlate to 4-bit for 16-level grayscale", WIDTH, HEIGHT);
   
-  // Allocate temporary 4-bit buffer for conversion
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  // Allocate temporary 4-bit buffer from SPIRAM to avoid DRAM overflow
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
   // 3-bit packing: Each 8 bits contains ~2.67 pixels (12 bits per 4 pixels)
@@ -443,7 +540,7 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
     // This is simplified - actual 3-bit extraction would need bit manipulation
     // For now, treat as unpacked bytes in source
     
-    if (pixel < frame_buffer.get_buffer_size()) {
+    if (pixel < frame_buffer.get_data_size()) {
       uint8_t pixel1 = (src[pixel] & 0x0F) * 2;      // Lower nibble, scale 0-7 → 0-14
       uint8_t pixel2 = ((src[pixel] >> 4) & 0x0F) * 2;  // Upper nibble
       
@@ -458,6 +555,7 @@ void M5Paper3::update(FrameBuffer3Bit & frame_buffer)
   load_image_to_display(conversion_buffer, 0, 0, WIDTH, HEIGHT);
   refresh_display(0, 0, WIDTH, HEIGHT, 2);  // 2 = GC16 mode
   
+  free(conversion_buffer);
   LOG_D("3-bit update complete");
 }
 
@@ -474,14 +572,18 @@ void M5Paper3::partial_update(FrameBuffer1Bit & frame_buffer, bool force)
   }
   
   // Convert 1-bit framebuffer to 4-bit
-  static uint8_t conversion_buffer[BITMAP_SIZE_4BIT];
+  uint8_t * conversion_buffer = (uint8_t *)heap_caps_malloc(BITMAP_SIZE_4BIT, MALLOC_CAP_SPIRAM);
+  if (!conversion_buffer) {
+    LOG_E("Failed to allocate conversion buffer from SPIRAM");
+    return;
+  }
   
-  const uint8_t * src = frame_buffer.get_buffer();
+  const uint8_t * src = frame_buffer.get_data();
   uint8_t * dst = conversion_buffer;
   
   LOG_D("Converting 1-bit frame buffer to 4-bit for partial update");
   
-  for (size_t i = 0; i < frame_buffer.get_buffer_size(); i++) {
+  for (size_t i = 0; i < frame_buffer.get_data_size(); i++) {
     uint8_t src_byte = src[i];
     
     // Convert 8 monochrome pixels to 4 grayscale pixels (2 per output byte)
