@@ -1,4 +1,5 @@
 #include "opds_ui_manager.hpp"
+#include "opds_ui_helpers.hpp"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include <cmath>
@@ -100,7 +101,7 @@ void OPDSUIManager::render_main_menu()
 {
   if (!panel) return;
 
-  clear_touch_regions();
+  OPDSUIHelpers::clear_touch_regions(touch_regions);
   render_header("OPDS Book Catalog");
 
   int y = HEADER_HEIGHT + PADDING * 4;
@@ -117,8 +118,8 @@ void OPDSUIManager::render_main_menu()
   };
 
   for (const auto& item : menu_items) {
-    draw_touch_button(PADDING * 2, y, button_width, button_height, item.first);
-    add_touch_region(PADDING * 2, y, button_width, button_height, "menu_" + item.second);
+    OPDSUIHelpers::draw_touch_button(panel, PADDING * 2, y, button_width, button_height, item.first);
+    OPDSUIHelpers::add_touch_region(touch_regions, PADDING * 2, y, button_width, button_height, "menu_" + item.second);
     ESP_LOGD(TAG, "Menu button: %s", item.first.c_str());
     y += button_height + PADDING;
   }
@@ -130,7 +131,7 @@ void OPDSUIManager::render_config_menu()
 {
   if (!panel) return;
 
-  clear_touch_regions();
+  OPDSUIHelpers::clear_touch_regions(touch_regions);
   render_header("Configure OPDS Server");
 
   int y = HEADER_HEIGHT + PADDING * 2;
@@ -145,8 +146,8 @@ void OPDSUIManager::render_config_menu()
   };
 
   for (const auto& field : config_fields) {
-    draw_touch_button(PADDING, y, SCREEN_WIDTH - PADDING * 2, field_height, field.first);
-    add_touch_region(PADDING, y, SCREEN_WIDTH - PADDING * 2, field_height, "field_" + std::to_string(field.second));
+    OPDSUIHelpers::draw_touch_button(panel, PADDING, y, SCREEN_WIDTH - PADDING * 2, field_height, field.first);
+    OPDSUIHelpers::add_touch_region(touch_regions, PADDING, y, SCREEN_WIDTH - PADDING * 2, field_height, "field_" + std::to_string(field.second));
     ESP_LOGD(TAG, "Config field %d: %s", field.second, field.first.c_str());
     y += field_height + PADDING;
   }
@@ -155,11 +156,11 @@ void OPDSUIManager::render_config_menu()
   int button_width = (SCREEN_WIDTH - PADDING * 3) / 2;
   y += PADDING * 2;
 
-  draw_touch_button(PADDING, y, button_width, 44, "Save");
-  add_touch_region(PADDING, y, button_width, 44, "config_save");
+  OPDSUIHelpers::draw_touch_button(panel, PADDING, y, button_width, 44, "Save");
+  OPDSUIHelpers::add_touch_region(touch_regions, PADDING, y, button_width, 44, "config_save");
 
-  draw_touch_button(PADDING + button_width + PADDING, y, button_width, 44, "Cancel");
-  add_touch_region(PADDING + button_width + PADDING, y, button_width, 44, "config_cancel");
+  OPDSUIHelpers::draw_touch_button(panel, PADDING + button_width + PADDING, y, button_width, 44, "Cancel");
+  OPDSUIHelpers::add_touch_region(touch_regions, PADDING + button_width + PADDING, y, button_width, 44, "config_cancel");
 
   render_footer("Tap field to edit | Save to confirm");
 }
@@ -372,54 +373,10 @@ void OPDSUIManager::on_touch_event(int x, int y, bool pressed)
   }
 }
 
-void OPDSUIManager::clear_touch_regions()
-{
-  touch_regions.clear();
-}
-
-void OPDSUIManager::add_touch_region(int x, int y, int width, int height, const std::string& action)
-{
-  touch_regions.push_back({x, y, width, height, action});
-  ESP_LOGD(TAG, "Added touch region: (%d,%d) %dx%d action='%s'", x, y, width, height, action.c_str());
-}
-
-OPDSUIManager::TouchRegion* OPDSUIManager::get_touched_region(int x, int y)
-{
-  for (auto& region : touch_regions) {
-    if (x >= region.x && x <= region.x + region.width &&
-        y >= region.y && y <= region.y + region.height) {
-      ESP_LOGD(TAG, "Touch hit region: %s", region.action.c_str());
-      return &region;
-    }
-  }
-  return nullptr;
-}
-
-void OPDSUIManager::draw_touch_button(int x, int y, int width, int height, const std::string& label, bool highlighted)
-{
-  if (!panel) return;
-
-  // Draw button background
-  if (highlighted) {
-    panel->fill_rect(x, y, width, height, 128);  // Gray for highlighted
-  } else {
-    panel->fill_rect(x, y, width, height, 255);  // White background
-  }
-
-  // Draw button border
-  panel->draw_rect(x, y, width, height, 0);  // Black border
-
-  // Draw label text centered in button
-  int text_x = x + PADDING;
-  int text_y = y + (height - 16) / 2;  // Center vertically (16pt text)
-  panel->draw_string(text_x, text_y, label.c_str(), 16, 0);
-
-  ESP_LOGD(TAG, "Button drawn: '%s' at (%d,%d)", label.c_str(), x, y);
-}
 
 void OPDSUIManager::handle_menu_touch(int x, int y)
 {
-  TouchRegion* region = get_touched_region(x, y);
+  TouchRegion* region = OPDSUIHelpers::get_touched_region(touch_regions, x, y);
   if (!region) {
     ESP_LOGW(TAG, "Touch outside menu buttons: (%d,%d)", x, y);
     return;
@@ -442,7 +399,7 @@ void OPDSUIManager::handle_menu_touch(int x, int y)
 
 void OPDSUIManager::handle_config_touch(int x, int y)
 {
-  TouchRegion* region = get_touched_region(x, y);
+  TouchRegion* region = OPDSUIHelpers::get_touched_region(touch_regions, x, y);
   if (!region) {
     return;
   }
@@ -466,7 +423,7 @@ void OPDSUIManager::handle_config_touch(int x, int y)
 
 void OPDSUIManager::handle_browse_touch(int x, int y)
 {
-  TouchRegion* region = get_touched_region(x, y);
+  TouchRegion* region = OPDSUIHelpers::get_touched_region(touch_regions, x, y);
   if (!region) {
     return;
   }
@@ -498,7 +455,7 @@ void OPDSUIManager::handle_browse_touch(int x, int y)
 
 void OPDSUIManager::handle_details_touch(int x, int y)
 {
-  TouchRegion* region = get_touched_region(x, y);
+  TouchRegion* region = OPDSUIHelpers::get_touched_region(touch_regions, x, y);
   if (!region) {
     return;
   }
@@ -514,7 +471,7 @@ void OPDSUIManager::handle_details_touch(int x, int y)
 
 void OPDSUIManager::handle_download_touch(int x, int y)
 {
-  TouchRegion* region = get_touched_region(x, y);
+  TouchRegion* region = OPDSUIHelpers::get_touched_region(touch_regions, x, y);
   if (!region) {
     return;
   }
@@ -525,61 +482,6 @@ void OPDSUIManager::handle_download_touch(int x, int y)
     opds_client->cancel_download();
     set_state(OPDS_STATE_BOOK_DETAILS);
   }
-}
-
-void OPDSUIManager::draw_on_screen_keyboard(int x, int y)
-{
-  if (!panel) return;
-
-  // Helper to draw full on-screen keyboard
-  // Keyboard layout: QWERTY style
-  const std::string rows[] = {
-    "QWERTYUIOP",
-    "ASDFGHJKL",
-    "ZXCVBNM.",
-    "0123456789"
-  };
-
-  int row_y = y;
-  for (int row = 0; row < 4; row++) {
-    int col_x = x;
-    for (char c : rows[row]) {
-      std::string key_str(1, c);
-      render_keyboard_letter(col_x, row_y, c, col_x, row_y);
-      col_x += 60;  // Key spacing
-    }
-    row_y += 32;  // Row spacing
-  }
-
-  ESP_LOGD(TAG, "On-screen keyboard rendered at (%d,%d)", x, y);
-}
-
-void OPDSUIManager::render_keyboard_letter(int col, int row, char letter, int x, int y, bool pressed)
-{
-  if (!panel) return;
-
-  int key_width = 56;
-  int key_height = 28;
-
-  // Draw key background
-  if (pressed) {
-    panel->fill_rect(x, y, key_width, key_height, 0);      // Dark when pressed
-  } else {
-    panel->fill_rect(x, y, key_width, key_height, 200);    // Light gray
-  }
-
-  // Draw border
-  panel->draw_rect(x, y, key_width, key_height, 0);
-
-  // Draw character
-  std::string key_str(1, letter);
-  int text_color = pressed ? 255 : 0;  // Inverted if pressed
-  panel->draw_string(x + 20, y + 6, key_str.c_str(), 12, text_color);
-
-  if (pressed) {
-    ESP_LOGD(TAG, "Keyboard key '%c' pressed", letter);
-  }
-}
 
 void OPDSUIManager::handle_menu_button(int button_id)
 {
@@ -1159,7 +1061,7 @@ void OPDSUIManager::input_text_field(const std::string& label,
 
   while (editing && !touch_in_progress) {
     // Clear previous touch regions for keyboard
-    clear_touch_regions();
+    OPDSUIHelpers::clear_touch_regions(touch_regions);
 
     // RENDERING PHASE
     render_header(label);
@@ -1212,7 +1114,7 @@ void OPDSUIManager::input_text_field(const std::string& label,
         panel->draw_string(key_x + 4, key_y + 6, key_str.c_str(), 12, 0);
 
         // Add touch region
-        add_touch_region(key_x, key_y, key_width - 2, key_height, "key_" + key_str);
+        OPDSUIHelpers::add_touch_region(touch_regions, key_x, key_y, key_width - 2, key_height, "key_" + key_str);
         ESP_LOGD(TAG, "Key '%c' at (%d,%d)", key_char, key_x, key_y);
 
         key_x += key_width;
@@ -1226,16 +1128,16 @@ void OPDSUIManager::input_text_field(const std::string& label,
     y = key_y + 2;
 
     // Backspace button
-    draw_touch_button(PADDING, y, button_width - 2, 36, "Backspace");
-    add_touch_region(PADDING, y, button_width - 2, 36, "action_backspace");
+    OPDSUIHelpers::draw_touch_button(panel, PADDING, y, button_width - 2, 36, "Backspace", false);
+    OPDSUIHelpers::add_touch_region(touch_regions, PADDING, y, button_width - 2, 36, "action_backspace");
 
     // Clear button
-    draw_touch_button(PADDING + button_width, y, button_width - 2, 36, "Clear");
-    add_touch_region(PADDING + button_width, y, button_width - 2, 36, "action_clear");
+    OPDSUIHelpers::draw_touch_button(panel, PADDING + button_width, y, button_width - 2, 36, "Clear", false);
+    OPDSUIHelpers::add_touch_region(touch_regions, PADDING + button_width, y, button_width - 2, 36, "action_clear");
 
     // Enter button
-    draw_touch_button(PADDING + button_width * 2, y, button_width - 2, 36, "Done");
-    add_touch_region(PADDING + button_width * 2, y, button_width - 2, 36, "action_done");
+    OPDSUIHelpers::draw_touch_button(panel, PADDING + button_width * 2, y, button_width - 2, 36, "Done", false);
+    OPDSUIHelpers::add_touch_region(touch_regions, PADDING + button_width * 2, y, button_width - 2, 36, "action_done");
 
     render_footer("Tap keys or buttons | Length: " + std::to_string(input_buffer.length()) + "/" + std::to_string(max_length));
 

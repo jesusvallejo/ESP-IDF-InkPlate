@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include "opds_client.hpp"
+#include "opds_ui_helpers.hpp"
 
 // Forward declarations
 class M5EPaperPanel;
@@ -194,26 +195,9 @@ private:
   static std::string format_size(uint64_t bytes);
   static std::string format_duration(uint32_t seconds);
 
-  // Touch region management
-  struct TouchRegion {
-    int x, y, width, height;
-    std::string action;  // "menu_1", "config_url", "keyboard_A", etc.
-  };
-  std::vector<TouchRegion> touch_regions;  // Active touch targets for current state
-
-  void clear_touch_regions();
-  void add_touch_region(int x, int y, int width, int height, const std::string& action);
-  TouchRegion* get_touched_region(int x, int y);
-
-  // Touch-based UI rendering
-  void draw_touch_button(int x, int y, int width, int height, const std::string& label, bool highlighted = false);
-  void draw_on_screen_keyboard(int x, int y);
-  void render_keyboard_letter(int col, int row, char letter, int x, int y, bool pressed = false);
-
   // Touch input state
   bool touch_in_progress;
-  int touch_regions_for_keyboard;
-  std::string keyboard_mode;  // "", "text", "url", "password"
+  std::vector<TouchRegion> touch_regions;  // Active touch targets for current state
   
   // Touch event handlers for each state
   void handle_menu_touch(int x, int y);
@@ -221,7 +205,6 @@ private:
   void handle_browse_touch(int x, int y);
   void handle_details_touch(int x, int y);
   void handle_download_touch(int x, int y);
-  void handle_keyboard_touch(int x, int y, const std::string& action);
 };
 
 // Global OPDS UI manager singleton
