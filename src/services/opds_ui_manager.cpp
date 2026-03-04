@@ -851,7 +851,7 @@ void OPDSUIManager::edit_config_field(int field_index)
   switch (field_index) {
     case 0: // URL
       ESP_LOGI(TAG, "Editing URL field: %s", config_url.c_str());
-      input_text_field("OPDS Server URL", config_url, 100, true);
+      input_text_field("OPDS Server URL", config_url, 100, true, false);
       ESP_LOGI(TAG, "URL field updated to: %s", config_url.c_str());
       break;
 
