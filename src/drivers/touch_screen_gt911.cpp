@@ -3,7 +3,7 @@
 #include "touch_screen_gt911.hpp"
 #include "esp_log.h"
 #include "driver/gpio.h"
-#include "driver/i2c_master.h"
+#include "wire.hpp"
 #include <cstring>
 
 static const char * TAG = "GT911";
@@ -24,17 +24,10 @@ bool TouchScreen::setup(bool power_on, ISRHandlerPtr isr_handler)
   
   ESP_LOGI(TAG, "Initializing GT911 touch controller at I2C address 0x%02X", GT911_I2C_ADDR);
 
-  // Get I2C device handle from global I2C bus
-  // Note: Assumes I2C bus is already initialized by system
-  extern i2c_master_bus_handle_t i2c_bus_handle;
-  
-  i2c_device_config_t dev_cfg = {};
-  dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-  dev_cfg.device_address = GT911_I2C_ADDR;
-  dev_cfg.flags.disable_ack_check = false;
-
-  if (i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &i2c_dev) != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to add GT911 device to I2C bus");
+  // Get Wire device for GT911
+  wire_device = Wire::get_device(GT911_I2C_ADDR, 100000);
+  if (!wire_device) {
+    ESP_LOGE(TAG, "Failed to get Wire device for GT911");
     return false;
   }
 
@@ -134,11 +127,7 @@ void TouchScreen::shutdown(bool remove_handler)
     ESP_LOGD(TAG, "GT911 GPIO ISR handler removed");
   }
   
-  if (i2c_dev) {
-    i2c_master_bus_rm_device(i2c_dev);
-    i2c_dev = nullptr;
-  }
-  
+  wire_device = nullptr;
   ready = false;
   touch_pressed = false;
   ESP_LOGI(TAG, "GT911 touch controller shutdown");
@@ -172,23 +161,17 @@ uint8_t TouchScreen::get_position(TouchPositions & x_positions, TouchPositions &
  */
 bool TouchScreen::read_register(uint16_t reg, uint8_t * data, uint8_t len)
 {
-  if (!i2c_dev) {
-    ESP_LOGE(TAG, "I2C device not initialized");
+  if (!wire_device) {
+    ESP_LOGE(TAG, "Wire device not initialized");
     return false;
   }
 
-  // GT911 uses 16-bit register addresses
-  // Write register address first (big-endian)
-  uint8_t reg_addr[2] = {
-    (uint8_t)((reg >> 8) & 0xFF),
-    (uint8_t)(reg & 0xFF)
-  };
+  Wire::enter();
+  bool result = wire_device->read_register(reg, data, len);
+  Wire::leave();
 
-  esp_err_t err = i2c_master_transmit_receive(i2c_dev, reg_addr, sizeof(reg_addr), 
-                                              data, len, 50);
-  
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "I2C read from register 0x%04X failed: %s", reg, esp_err_to_name(err));
+  if (!result) {
+    ESP_LOGE(TAG, "I2C read from register 0x%04X failed", reg);
     return false;
   }
 
@@ -200,21 +183,17 @@ bool TouchScreen::read_register(uint16_t reg, uint8_t * data, uint8_t len)
  */
 bool TouchScreen::write_register(uint16_t reg, const uint8_t * data, uint8_t len)
 {
-  if (!i2c_dev) {
-    ESP_LOGE(TAG, "I2C device not initialized");
+  if (!wire_device) {
+    ESP_LOGE(TAG, "Wire device not initialized");
     return false;
   }
 
-  // Prepare buffer: 2-byte address + data
-  uint8_t buffer[len + 2];
-  buffer[0] = (uint8_t)((reg >> 8) & 0xFF);
-  buffer[1] = (uint8_t)(reg & 0xFF);
-  std::memcpy(&buffer[2], data, len);
+  Wire::enter();
+  bool result = wire_device->write_register(reg, data, len);
+  Wire::leave();
 
-  esp_err_t err = i2c_master_transmit(i2c_dev, buffer, len + 2, 50);
-  
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "I2C write to register 0x%04X failed: %s", reg, esp_err_to_name(err));
+  if (!result) {
+    ESP_LOGE(TAG, "I2C write to register 0x%04X failed", reg);
     return false;
   }
 
@@ -238,7 +217,7 @@ uint8_t TouchScreen::calculate_checksum(const uint8_t * config, uint8_t size)
  */
 uint8_t TouchScreen::read_touch_data()
 {
-  if (!ready || !i2c_dev) {
+  if (!ready || !wire_device) {
     return 0;
   }
 
@@ -350,7 +329,7 @@ TouchScreen::TouchData TouchScreen::parse_touch_data(uint8_t raw_status)
  */
 TouchScreen::TouchData TouchScreen::get_touch_data()
 {
-  if (!ready || !i2c_dev) {
+  if (!ready || !wire_device) {
     TouchData empty = {};
     return empty;
   }
@@ -378,7 +357,7 @@ bool TouchScreen::clear_interrupt()
  */
 void TouchScreen::set_touch_sensitivity(uint8_t sensitivity)
 {
-  if (!i2c_dev || sensitivity == 0) {
+  if (!wire_device || sensitivity == 0) {
     return;
   }
 
@@ -394,7 +373,7 @@ void TouchScreen::set_touch_sensitivity(uint8_t sensitivity)
  */
 void TouchScreen::set_noise_reduction(uint8_t reduction)
 {
-  if (!i2c_dev || reduction == 0) {
+  if (!wire_device || reduction == 0) {
     return;
   }
 
@@ -410,7 +389,7 @@ void TouchScreen::set_noise_reduction(uint8_t reduction)
  */
 void TouchScreen::set_debounce_time(uint8_t time_ms)
 {
-  if (!i2c_dev) {
+  if (!wire_device) {
     return;
   }
 
