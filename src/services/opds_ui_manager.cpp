@@ -857,7 +857,7 @@ void OPDSUIManager::edit_config_field(int field_index)
 
     case 1: // Username
       ESP_LOGI(TAG, "Editing username field: %s", config_username.c_str());
-      input_text_field("Username", config_username, 50, false);
+      input_text_field("Username", config_username, 50, false, false);
       ESP_LOGI(TAG, "Username field updated");
       break;
 
