@@ -3,6 +3,10 @@
 #include "driver/gpio.h"
 #include <cmath>
 #include <algorithm>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <cstring>
 
 static const char* TAG = "OPDSUIManager";
 
@@ -708,35 +712,68 @@ void OPDSUIManager::show_recent_downloads()
 
   current_entries.clear();
   
-  // Production implementation:
+  // Production implementation - Scan /sdcard/books/ directory for EPUB files
   // 1. Open directory /sdcard/books/
   // 2. List all .epub files with stat info
   // 3. Extract metadata from file properties
   // 4. Display in sorted date order
   // 5. Allow user to open with embedded reader
 
-  // Populate with actual SD card entries retrieved from filesystem
-  OPDSEntry recent_book1;
-  recent_book1.title = "The Great Gatsby";
-  recent_book1.author = "F. Scott Fitzgerald";
-  recent_book1.file_size = 2048576;  // 2 MB from /sdcard/books/ directory
-  recent_book1.epub_url = "/sdcard/books/great_gatsby.epub";
-  recent_book1.publication_date = "2024-03-01";  // File modification date from SD
-  recent_book1.summary = "American classic novel downloaded locally";
-  recent_book1.id = "local_gatsby_001";
-  current_entries.push_back(recent_book1);
-  ESP_LOGD(TAG, "Added local book: %s (%zu bytes)", recent_book1.title.c_str(), recent_book1.file_size);
-  
-  OPDSEntry recent_book2;
-  recent_book2.title = "Pride and Prejudice";
-  recent_book2.author = "Jane Austen";
-  recent_book2.file_size = 3145728;  // 3 MB from SD directory
-  recent_book2.epub_url = "/sdcard/books/pride_prejudice.epub";
-  recent_book2.publication_date = "2024-02-28";
-  recent_book2.summary = "Classic romance novel from local storage";
-  recent_book2.id = "local_austen_001";
-  current_entries.push_back(recent_book2);
-  ESP_LOGD(TAG, "Added local book: %s (%zu bytes)", recent_book2.title.c_str(), recent_book2.file_size);
+  DIR* dir = opendir("/sdcard/books/");
+  if (!dir) {
+    ESP_LOGW(TAG, "Failed to open /sdcard/books/ directory");
+    show_error("Cannot access /sdcard/books/ directory");
+    return;
+  }
+
+  struct dirent* entry_dir = nullptr;
+  while ((entry_dir = readdir(dir)) != nullptr) {
+    // Check if file has .epub extension
+    const char* filename = entry_dir->d_name;
+    size_t len = strlen(filename);
+    
+    if (len < 5 || strcmp(filename + len - 5, ".epub") != 0) {
+      continue;  // Skip non-EPUB files
+    }
+
+    // Build full path
+    char full_path[256];
+    snprintf(full_path, sizeof(full_path), "/sdcard/books/%s", filename);
+    
+    // Get file stats for size and modification date
+    struct stat file_stat;
+    if (stat(full_path, &file_stat) != 0) {
+      ESP_LOGW(TAG, "Failed to stat file: %s", full_path);
+      continue;
+    }
+
+    // Create book entry from file
+    OPDSEntry book_entry;
+    book_entry.title = std::string(filename);
+    if (book_entry.title.length() > 5) {
+      book_entry.title = book_entry.title.substr(0, book_entry.title.length() - 5);  // Remove .epub
+    }
+    book_entry.author = "Local Storage";
+    book_entry.file_size = file_stat.st_size;
+    book_entry.epub_url = full_path;
+    
+    // Format modification date
+    char date_buf[32];
+    struct tm* timeinfo = localtime(&file_stat.st_mtime);
+    strftime(date_buf, sizeof(date_buf), "%Y-%m-%d", timeinfo);
+    book_entry.publication_date = std::string(date_buf);
+    
+    book_entry.summary = "Downloaded from OPDS server";
+    book_entry.id = "local_" + std::to_string(current_entries.size());
+    
+    current_entries.push_back(book_entry);
+    ESP_LOGD(TAG, "Added local book: %s (%lld bytes, date: %s)", 
+             book_entry.title.c_str(), book_entry.file_size, book_entry.publication_date.c_str());
+  }
+
+  closedir(dir);
+  ESP_LOGI(TAG, "Directory scan complete: %zu EPUB files found in /sdcard/books/", current_entries.size());
+
 
   if (current_entries.empty()) {
     ESP_LOGW(TAG, "No downloaded books found in /sdcard/books/");
