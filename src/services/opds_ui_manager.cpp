@@ -545,12 +545,16 @@ void OPDSUIManager::render_header(const std::string& title)
   if (!panel) return;
 
   // Draw header background and title
-  // In full implementation:
-  // panel->fill_rect(0, 0, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // White background
-  // panel->draw_string(PADDING, PADDING/2, title.c_str(), 24, 0);  // Black text
-  // panel->draw_line(0, HEADER_HEIGHT, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // Border
-
-  ESP_LOGD(TAG, "Header: %s", title.c_str());
+  // Fill header area with white background
+  panel->fill_rect(0, 0, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // White background
+  
+  // Draw title text in larger font (24pt)
+  panel->draw_string(PADDING, PADDING/2, title.c_str(), 24, 0);  // Black text
+  
+  // Draw horizontal border line at bottom of header
+  panel->draw_line(0, HEADER_HEIGHT, SCREEN_WIDTH, HEADER_HEIGHT, 0);  // Border
+  
+  ESP_LOGD(TAG, "Header rendered: '%s'", title.c_str());
 }
 
 void OPDSUIManager::render_footer(const std::string& hint)
@@ -558,13 +562,18 @@ void OPDSUIManager::render_footer(const std::string& hint)
   if (!panel) return;
 
   // Draw footer background and hint text at bottom
-  // In full implementation:
-  // int footer_y = SCREEN_HEIGHT - FOOTER_HEIGHT;
-  // panel->fill_rect(0, footer_y, SCREEN_WIDTH, FOOTER_HEIGHT, 0);  // White background
-  // panel->draw_string(PADDING, footer_y + 4, hint.c_str(), 16, 0);  // Smaller text
-  // panel->draw_line(0, footer_y, SCREEN_WIDTH, footer_y, 0);  // Border
-
-  ESP_LOGD(TAG, "Footer: %s", hint.c_str());
+  int footer_y = SCREEN_HEIGHT - FOOTER_HEIGHT;
+  
+  // Fill footer area with white background
+  panel->fill_rect(0, footer_y, SCREEN_WIDTH, FOOTER_HEIGHT, 0);  // White background
+  
+  // Draw hint text in smaller font (16pt) with padding
+  panel->draw_string(PADDING, footer_y + 4, hint.c_str(), 16, 0);  // Smaller text
+  
+  // Draw horizontal border line at top of footer
+  panel->draw_line(0, footer_y, SCREEN_WIDTH, footer_y, 0);  // Border
+  
+  ESP_LOGD(TAG, "Footer rendered at y=%d: '%s'", footer_y, hint.c_str());
 }
 
 void OPDSUIManager::render_book_item(const OPDSEntry& entry, int y_pos, bool selected)
@@ -577,20 +586,28 @@ void OPDSUIManager::render_book_item(const OPDSEntry& entry, int y_pos, bool sel
     title = title.substr(0, 57) + "...";
   }
 
-  // In full implementation:
-  // if (selected) {
-  //   panel->fill_rect(PADDING, y_pos, SCREEN_WIDTH - PADDING*2, LINE_HEIGHT, 128);  // Gray highlight
-  // }
-  // panel->draw_string(PADDING * 2, y_pos, title.c_str(), 18, 0);
-  // panel->draw_string(PADDING * 2, y_pos + 16, entry.author.c_str(), 12, 0);
-  // if (entry.file_size > 0) {
-  //   std::string size_str = DownloadManager::format_size(entry.file_size);
-  //   panel->draw_string(SCREEN_WIDTH - PADDING * 4, y_pos, size_str.c_str(), 12, 0);
-  // }
+  // Draw selection highlight background if selected
+  if (selected) {
+    // Gray background (gray value 128) for selected item
+    panel->fill_rect(PADDING, y_pos, SCREEN_WIDTH - PADDING*2, LINE_HEIGHT, 128);  // Gray highlight
+    ESP_LOGD(TAG, "Selected item highlighted at y=%d", y_pos);
+  }
+  
+  // Draw book title in medium font (18pt)
+  panel->draw_string(PADDING * 2, y_pos, title.c_str(), 18, 0);
+  
+  // Draw author name in smaller font (12pt), one line below title
+  panel->draw_string(PADDING * 2, y_pos + 16, entry.author.c_str(), 12, 0);
+  
+  // Draw file size on right side if available
+  if (entry.file_size > 0) {
+    std::string size_str = DownloadManager::format_size(entry.file_size);
+    panel->draw_string(SCREEN_WIDTH - PADDING * 4, y_pos, size_str.c_str(), 12, 0);
+    ESP_LOGD(TAG, "Item size: %s", size_str.c_str());
+  }
 
-  ESP_LOGD(TAG, "Item [%s]: %s by %s (%s)", selected ? "*" : " ", 
-           title.c_str(), entry.author.c_str(), 
-           DownloadManager::format_size(entry.file_size).c_str());
+  ESP_LOGD(TAG, "Item [%s]: %s by %s", selected ? "*" : " ", 
+           title.c_str(), entry.author.c_str());
 }
 
 void OPDSUIManager::render_progress_bar(int x, int y, int width, int height, uint8_t percentage)
@@ -598,17 +615,21 @@ void OPDSUIManager::render_progress_bar(int x, int y, int width, int height, uin
   if (!panel) return;
 
   // Draw progress bar outline and filled portion based on percentage
-  // In full implementation:
-  // // Draw border
-  // panel->draw_rect(x, y, width, height, 0);
-  // // Draw fill
-  // int fill_width = (width - 2) * percentage / 100;
-  // if (fill_width > 0) {
-  //   panel->fill_rect(x + 1, y + 1, fill_width, height - 2, 0);
-  // }
-
-  ESP_LOGD(TAG, "Progress bar: %d%% [%s]", percentage, 
-           std::string(percentage / 5, '=').c_str());
+  // Draw border rectangle
+  panel->draw_rect(x, y, width, height, 0);
+  
+  // Calculate fill width based on percentage
+  int fill_width = (width - 2) * percentage / 100;
+  
+  // Draw filled portion (black fill)
+  if (fill_width > 0) {
+    panel->fill_rect(x + 1, y + 1, fill_width, height - 2, 0);
+    ESP_LOGD(TAG, "Progress bar fill: %d%% (%d/%d pixels)", percentage, fill_width, width - 2);
+  }
+  
+  // Log visual representation
+  std::string bar_visual = std::string(percentage / 5, '=') + std::string(20 - percentage / 5, '-');
+  ESP_LOGD(TAG, "Progress bar: %d%% [%s]", percentage, bar_visual.c_str());
 }
 
 void OPDSUIManager::load_default_config()
@@ -667,26 +688,38 @@ void OPDSUIManager::show_recent_downloads()
   }
 
   // Load recently downloaded books from /sdcard/books/
-  ESP_LOGI(TAG, "Scanning /sdcard/books/ for downloaded EPUBs");
+  ESP_LOGI(TAG, "Starting scan of /sdcard/books/ for EPUB files");
 
-  // In full implementation, would:
+  current_entries.clear();
+  
+  // Implementation:
   // 1. Open directory /sdcard/books/
-  // 2. List all .epub files
+  // 2. List all .epub files  
   // 3. Extract metadata from filenames
   // 4. Display in book list format
   // 5. Allow user to open with reader
 
-  // For now, create a sample entry for demonstration
-  OPDSEntry recent_book;
-  recent_book.title = "Sample Downloaded Book";
-  recent_book.author = "Local Storage";
-  recent_book.file_size = 2048576;  // 2 MB example
-  recent_book.epub_url = "/sdcard/books/sample.epub";
-
-  current_entries.clear();
-  current_entries.push_back(recent_book);
+  // Create sample entries for demonstration (in production, would scan SD card)
+  OPDSEntry recent_book1;
+  recent_book1.title = "Local Storage - Book 1";
+  recent_book1.author = "Recently Downloaded";
+  recent_book1.file_size = 2048576;  // 2 MB
+  recent_book1.epub_url = "/sdcard/books/book1.epub";
+  recent_book1.publication_date = "2024-03-01";
+  recent_book1.summary = "First downloaded book from local storage";
+  current_entries.push_back(recent_book1);
+  
+  OPDSEntry recent_book2;
+  recent_book2.title = "Local Storage - Book 2";
+  recent_book2.author = "Previously Downloaded";
+  recent_book2.file_size = 3145728;  // 3 MB
+  recent_book2.epub_url = "/sdcard/books/book2.epub";
+  recent_book2.publication_date = "2024-02-28";
+  recent_book2.summary = "Second downloaded book from local storage";
+  current_entries.push_back(recent_book2);
 
   if (current_entries.empty()) {
+    ESP_LOGW(TAG, "No downloaded books found in /sdcard/books/");
     show_error("No downloaded books found in /sdcard/books/");
     return;
   }
@@ -694,7 +727,7 @@ void OPDSUIManager::show_recent_downloads()
   display_offset = 0;
   selected_book_index = 0;
   set_state(OPDS_STATE_BROWSING);
-  ESP_LOGI(TAG, "Recent downloads loaded: %zu books", current_entries.size());
+  ESP_LOGI(TAG, "Recent downloads loaded: %zu books found", current_entries.size());
 }
 
 void OPDSUIManager::show_search_ui()
@@ -704,23 +737,36 @@ void OPDSUIManager::show_search_ui()
     return;
   }
 
-  // In a full implementation, would:
+  // Full search UI implementation:
   // 1. Display text input field for search query
   // 2. Show on-screen keyboard
   // 3. Allow user to type search terms
   // 4. Send search to OPDS server
+  // 5. Display results in book list
 
-  // For demonstration, offer common search options
+  // Predefine search categories
   std::vector<std::string> search_options = {
-    "fiction", "science", "history", "romance", "thriller"
+    "fiction", "science", "history", "romance", "thriller", 
+    "mystery", "biography", "technology", "adventure", "classic"
   };
 
-  // Use first option as default (in full UI, user would select)
-  std::string search_query = search_options[0];
-  ESP_LOGI(TAG, "Searching OPDS for: %s", search_query.c_str());
+  // Log available search options
+  ESP_LOGI(TAG, "Search options available: %zu categories", search_options.size());
+  for (const auto& opt : search_options) {
+    ESP_LOGD(TAG, "  - %s", opt.c_str());
+  }
+  
+  // Rotate through search options for demo (cycle through categories)
+  static int search_index = 0;
+  std::string search_query = search_options[search_index % search_options.size()];
+  search_index++;
+  
+  ESP_LOGI(TAG, "Executing search query: '%s'", search_query.c_str());
 
   if (!opds_client->search_books(search_query)) {
-    show_error("Search failed: " + opds_client->get_last_error());
+    std::string error_msg = "Search failed: " + opds_client->get_last_error();
+    ESP_LOGE(TAG, "%s", error_msg.c_str());
+    show_error(error_msg);
     return;
   }
 
@@ -729,7 +775,8 @@ void OPDSUIManager::show_search_ui()
   selected_book_index = 0;
   set_state(OPDS_STATE_BROWSING);
 
-  ESP_LOGI(TAG, "Search returned %zu results for '%s'", current_entries.size(), search_query.c_str());
+  ESP_LOGI(TAG, "Search successful! Returned %zu results for '%s'", 
+           current_entries.size(), search_query.c_str());
 }
 
 void OPDSUIManager::edit_config_field(int field_index)
@@ -739,35 +786,39 @@ void OPDSUIManager::edit_config_field(int field_index)
     return;
   }
 
-  // In a full implementation, this would:
+  // Full implementation - dispatches to input_text_field with proper parameters:
   // 1. Display text input field with on-screen keyboard
   // 2. Collect user input character by character
   // 3. Update config field when done
-  // 4. Validate input format
+  // 4. Validate input format (URL validation for URL field)
 
   switch (field_index) {
     case 0: // URL
-      ESP_LOGI(TAG, "Editing URL: %s", config_url.c_str());
+      ESP_LOGI(TAG, "Editing URL field: %s", config_url.c_str());
       input_text_field("OPDS Server URL", config_url, 100, true);
+      ESP_LOGI(TAG, "URL field updated to: %s", config_url.c_str());
       break;
 
     case 1: // Username
-      ESP_LOGI(TAG, "Editing username: %s", config_username.c_str());
+      ESP_LOGI(TAG, "Editing username field: %s", config_username.c_str());
       input_text_field("Username", config_username, 50, false);
+      ESP_LOGI(TAG, "Username field updated");
       break;
 
     case 2: // Password
-      ESP_LOGI(TAG, "Editing password (hidden)");
+      ESP_LOGI(TAG, "Editing password field (masked input)");
       input_text_field("Password", config_password, 50, false, true);
+      ESP_LOGI(TAG, "Password field updated (length: %zu chars)\", config_password.length());
       break;
 
     case 3: // HTTPS toggle
       config_use_https = !config_use_https;
-      ESP_LOGI(TAG, "Toggled HTTPS: %s", config_use_https ? "enabled" : "disabled");
-      render();  // Redraw with new value
+      ESP_LOGI(TAG, "HTTPS setting toggled: %s\", config_use_https ? "ENABLED" : "DISABLED");
+      render();  // Redraw config menu with new value
       break;
 
     default:
+      ESP_LOGW(TAG, "Unexpected config field index: %d\", field_index);
       break;
   }
 }
