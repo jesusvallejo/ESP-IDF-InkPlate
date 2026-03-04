@@ -10,6 +10,14 @@ BMI270IMU::BMI270IMU()
 {
 }
 
+BMI270IMU::~BMI270IMU()
+{
+  if (wire_device != nullptr) {
+    delete wire_device;
+    wire_device = nullptr;
+  }
+}
+
 bool BMI270IMU::setup()
 {
   LOG_I("BMI270IMU::setup() - Initializing 6-DOF accelerometer/gyroscope");
@@ -18,9 +26,13 @@ bool BMI270IMU::setup()
   for (uint8_t i = 0; i < 2; i++) {
     device_address = (i == 0) ? IMU_ADDR_PRIMARY : IMU_ADDR_ALTERNATE;
     
-    wire_device = Wire::get_device(device_address, 100000);
-    if (!wire_device) {
+    wire_device = new WireDevice(device_address, true);
+    if (!wire_device || !wire_device->is_initialized()) {
       LOG_W("Could not get Wire device at 0x%02X", device_address);
+      if (wire_device) {
+        delete wire_device;
+        wire_device = nullptr;
+      }
       continue;
     }
 
@@ -67,29 +79,21 @@ uint8_t BMI270IMU::read_register(uint8_t reg)
 {
   if (!wire_device) return 0;
   
-  uint8_t data = 0;
-  Wire::enter();
-  wire_device->read_register(reg, &data, 1);
-  Wire::leave();
-  return data;
+  return wire_device->cmd_read(reg);
 }
 
 void BMI270IMU::write_register(uint8_t reg, uint8_t value)
 {
   if (!wire_device) return;
   
-  Wire::enter();
-  wire_device->write_register(reg, &value, 1);
-  Wire::leave();
+  wire_device->cmd_write(reg, value);
 }
 
 void BMI270IMU::read_registers(uint8_t reg, uint8_t * data, uint16_t len)
 {
   if (!wire_device) return;
   
-  Wire::enter();
-  wire_device->read_register(reg, data, len);
-  Wire::leave();
+  wire_device->cmd_read(reg, data, len);
 }
 
 void BMI270IMU::set_accel_range(AccelRange range)
@@ -106,7 +110,7 @@ void BMI270IMU::set_gyro_range(GyroRange range)
   LOG_D("Gyroscope range set to %d", static_cast<uint8_t>(range));
 }
 
-Vector3D BMI270IMU::read_accel()
+BMI270IMU::Vector3D BMI270IMU::read_accel()
 {
   Vector3D accel = {0, 0, 0};
   if (!present) return accel;
@@ -135,7 +139,7 @@ Vector3D BMI270IMU::read_accel()
   return accel;
 }
 
-Vector3D BMI270IMU::read_gyro()
+BMI270IMU::Vector3D BMI270IMU::read_gyro()
 {
   Vector3D gyro = {0, 0, 0};
   if (!present) return gyro;
@@ -178,7 +182,7 @@ float BMI270IMU::read_temperature()
   return temperature;
 }
 
-IMUData BMI270IMU::read_all()
+BMI270IMU::IMUData BMI270IMU::read_all()
 {
   IMUData data;
   data.accel = read_accel();

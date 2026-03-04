@@ -112,7 +112,7 @@ class BMI270IMU : NonCopyable {
 
   public:
     BMI270IMU();
-    ~BMI270IMU() = default;
+    ~BMI270IMU();
 
     /**
      * Initialize the IMU
