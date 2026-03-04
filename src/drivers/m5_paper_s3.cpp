@@ -59,8 +59,9 @@ using namespace M5Paper3Pins;
 static constexpr char const * TAG = "M5Paper3";
 
 // I2C Master handles for GT911 touch and other I2C devices on bus 0
-static i2c_master_bus_handle_t i2c_bus_handle = NULL;
-static i2c_master_dev_handle_t gt911_device_handle = NULL;
+// Declared extern so other drivers (GT911) can access them
+i2c_master_bus_handle_t i2c_bus_handle = NULL;
+i2c_master_dev_handle_t gt911_device_handle = NULL;
 
 M5Paper3::M5Paper3()
 {

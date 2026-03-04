@@ -3,7 +3,7 @@
 #if M5_PAPER_S3
 
 #include "non_copyable.hpp"
-#include "wire.hpp"
+#include "driver/i2c_master.h"
 #include <array>
 #include <cstdint>
 
@@ -139,7 +139,7 @@ class TouchScreen : NonCopyable
     uint16_t last_y = 0;
     uint8_t last_touch_count = 0;
     ISRHandlerPtr app_isr_handler = nullptr;
-    WireDevice * wire_device = nullptr;
+    i2c_master_dev_handle_t i2c_dev = nullptr;
 
     // GT911 Register addresses
     struct GT911Registers {
