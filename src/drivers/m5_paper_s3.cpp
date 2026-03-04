@@ -48,7 +48,7 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 #include "m5_paper_s3.hpp"
 #include "m5_paper_s3_pins.hpp"
 #include "logging.hpp"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -56,6 +56,10 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 using namespace M5Paper3Pins;
 
 static constexpr char const * TAG = "M5Paper3";
+
+// I2C Master handles for GT911 touch and other I2C devices on bus 0
+static i2c_master_bus_handle_t i2c_bus_handle = NULL;
+static i2c_master_dev_handle_t gt911_device_handle = NULL;
 
 M5Paper3::M5Paper3()
 {
@@ -206,28 +210,48 @@ bool M5Paper3::init_touch()
   // - Also on same I2C bus: BM8563 (RTC), BMI270 (IMU)
   
   // Initialize I2C0 if not already done
-  i2c_config_t i2c_cfg = {};
-  i2c_cfg.mode = I2C_MODE_MASTER;
-  i2c_cfg.sda_io_num = GPIO_NUM_41;
-  i2c_cfg.scl_io_num = GPIO_NUM_42;
-  i2c_cfg.master.clk_speed = 100000;
-  i2c_cfg.sda_pullup_en = GPIO_PULLUP_ENABLE;
-  i2c_cfg.scl_pullup_en = GPIO_PULLUP_ENABLE;
-  i2c_cfg.clk_flags = 0;
+  esp_err_t err = ESP_OK;
   
-  esp_err_t err = i2c_param_config(I2C_NUM_0, &i2c_cfg);
-  if (err != ESP_OK) {
-    LOG_E("I2C0 param config failed: %s", esp_err_to_name(err));
-    return false;
+  if (i2c_bus_handle == NULL) {
+    // Configure I2C master bus
+    i2c_master_bus_config_t i2c_mst_config = {
+      .i2c_port = I2C_NUM_0,
+      .sda_io_num = GPIO_NUM_41,
+      .scl_io_num = GPIO_NUM_42,
+      .clk_source = I2C_CLK_SRC_DEFAULT,
+      .glitch_ignore_cnt = 7,
+      .intr_priority = 0,
+      .trans_queue_depth = 0,
+      .flags = {.enable_internal_pullup = true}
+    };
+    
+    err = i2c_new_master_bus(&i2c_mst_config, &i2c_bus_handle);
+    if (err != ESP_OK) {
+      LOG_E("I2C0 master bus init failed: %s", esp_err_to_name(err));
+      return false;
+    }
+    
+    LOG_I("I2C0 master bus initialized: SDA=GPIO41, SCL=GPIO42");
   }
   
-  err = i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {  // Already installed is OK
-    LOG_E("I2C0 driver install failed: %s", esp_err_to_name(err));
-    return false;
+  if (gt911_device_handle == NULL) {
+    // Configure GT911 device on I2C0 bus
+    i2c_master_device_config_t dev_cfg = {
+      .dev_addr_length = I2C_ADDR_BIT_7,
+      .device_address = 0x14,  // GT911 I2C address
+      .scl_speed_hz = 100000,  // 100 kHz
+      .scl_wait_us = 1000,
+      .flags = {.disable_ack_check = false}
+    };
+    
+    err = i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &gt911_device_handle);
+    if (err != ESP_OK) {
+      LOG_E("GT911 device add to I2C0 failed: %s", esp_err_to_name(err));
+      return false;
+    }
+    
+    LOG_I("GT911 device added to I2C0 bus at address 0x14");
   }
-  
-  LOG_I("I2C0 initialized: SDA=GPIO41, SCL=GPIO42, Speed=100kHz");
   
   // Configure GT911 interrupt pin (GPIO 48)
   gpio_config_t gpio_cfg = {};
@@ -241,11 +265,10 @@ bool M5Paper3::init_touch()
   LOG_D("GT911 interrupt pin configured: GPIO 48 (falling edge)");
   
   // Verify GT911 presence on I2C bus by reading a register
-  uint8_t i2c_addr = 0x14;
   uint8_t reg = 0x00;
   uint8_t data = 0;
   
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &reg, 1, &data, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &reg, 1, &data, 1, -1);
   if (err == ESP_OK) {
     LOG_I("GT911 detected on I2C0 at address 0x14, read config byte: 0x%02X", data);
     
@@ -257,7 +280,7 @@ bool M5Paper3::init_touch()
     }
   } else {
     LOG_W("GT911 not responding on I2C0 at address 0x14: %s", esp_err_to_name(err));
-    // Continue anyway - GTx911 may respond after firmware load or device reset
+    // Continue anyway - GT911 may respond after firmware load or device reset
   }
   
   LOG_I("GT911 touch driver initialized");
@@ -285,13 +308,18 @@ bool M5Paper3::load_gt911_firmware()
   //   - Max touch points: 10 (GT911 supports up to 10)
   //   - Firmware: Device-specific (obtain from M5Stack)
   
-  uint8_t i2c_addr = 0x14;
+  if (gt911_device_handle == NULL) {
+    LOG_E("GT911 device handle not initialized");
+    return false;
+  }
+  
+  esp_err_t err;
   
   // Step 1: Verify device is in bootloader mode or accessible for FW load
   // Read device ID to determine current state
   uint8_t dev_id_reg = 0x04;
   uint8_t device_id = 0;
-  esp_err_t err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &dev_id_reg, 1, &device_id, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &dev_id_reg, 1, &device_id, 1, -1);
   
   if (err != ESP_OK) {
     LOG_E("Could not read GT911 device ID: %s", esp_err_to_name(err));
@@ -308,7 +336,7 @@ bool M5Paper3::load_gt911_firmware()
   
   // X resolution configuration (960 = 0x03C0)
   uint8_t x_res_cfg[] = {0x04, 0xC0, 0x03};  // Register 0x04-0x05 = 960 (little-endian)
-  err = i2c_master_write_to_device(I2C_NUM_0, i2c_addr, x_res_cfg, sizeof(x_res_cfg), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit(gt911_device_handle, x_res_cfg, sizeof(x_res_cfg), -1);
   if (err != ESP_OK) {
     LOG_W("Failed to configure GT911 X resolution: %s", esp_err_to_name(err));
     // Continue anyway - may have default config
@@ -318,7 +346,7 @@ bool M5Paper3::load_gt911_firmware()
   
   // Y resolution configuration (540 = 0x021C)
   uint8_t y_res_cfg[] = {0x06, 0x1C, 0x02};  // Register 0x06-0x07 = 540 (little-endian)
-  err = i2c_master_write_to_device(I2C_NUM_0, i2c_addr, y_res_cfg, sizeof(y_res_cfg), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit(gt911_device_handle, y_res_cfg, sizeof(y_res_cfg), -1);
   if (err != ESP_OK) {
     LOG_W("Failed to configure GT911 Y resolution: %s", esp_err_to_name(err));
   } else {
@@ -329,7 +357,7 @@ bool M5Paper3::load_gt911_firmware()
   // GT911 typically stores calibration in registers 0x9E-0xA7 or similar
   uint8_t cal_data[10];
   uint8_t cal_reg = 0x9E;  // Typical calibration register start
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &cal_reg, 1, cal_data, sizeof(cal_data), 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &cal_reg, 1, cal_data, sizeof(cal_data), -1);
   
   if (err == ESP_OK) {
     LOG_D("GT911 calibration data: [");
@@ -345,7 +373,7 @@ bool M5Paper3::load_gt911_firmware()
   // Touch status is typically at register 0x02
   uint8_t touch_status_reg = 0x02;
   uint8_t touch_status = 0;
-  err = i2c_master_write_read_device(I2C_NUM_0, i2c_addr, &touch_status_reg, 1, &touch_status, 1, 1000 / portTICK_PERIOD_MS);
+  err = i2c_master_transmit_receive(gt911_device_handle, &touch_status_reg, 1, &touch_status, 1, -1);
   
   if (err == ESP_OK) {
     LOG_I("GT911 touch status: 0x%02X (ready for operation)", touch_status);
