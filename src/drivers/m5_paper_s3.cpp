@@ -222,7 +222,6 @@ bool M5Paper3::init_touch()
       .glitch_ignore_cnt = 7,
       .intr_priority = 0,
       .trans_queue_depth = 0,
-      .allow_pd = false,
       .flags = {.enable_internal_pullup = true}
     };
     
@@ -238,7 +237,7 @@ bool M5Paper3::init_touch()
   if (gt911_device_handle == NULL) {
     // Configure GT911 device on I2C0 bus
     i2c_device_config_t dev_cfg = {
-      .dev_addr_length = I2C_ADDR_BIT_7,
+      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
       .device_address = 0x14,  // GT911 I2C address
       .scl_speed_hz = 100000,  // 100 kHz
       .scl_wait_us = 1000,
