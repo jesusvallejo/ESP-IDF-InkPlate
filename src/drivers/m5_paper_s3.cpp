@@ -52,6 +52,7 @@ This code is released under the GNU Lesser General Public License v3.0: https://
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
+#include <cstring>
 
 using namespace M5Paper3Pins;
 
@@ -214,16 +215,16 @@ bool M5Paper3::init_touch()
   
   if (i2c_bus_handle == NULL) {
     // Configure I2C master bus
-    i2c_master_bus_config_t i2c_mst_config = {
-      .i2c_port = I2C_NUM_0,
-      .sda_io_num = GPIO_NUM_41,
-      .scl_io_num = GPIO_NUM_42,
-      .clk_source = I2C_CLK_SRC_DEFAULT,
-      .glitch_ignore_cnt = 7,
-      .intr_priority = 0,
-      .trans_queue_depth = 0,
-      .flags = {.enable_internal_pullup = true}
-    };
+    i2c_master_bus_config_t i2c_mst_config = {};
+    memset(&i2c_mst_config, 0, sizeof(i2c_mst_config));
+    i2c_mst_config.i2c_port = I2C_NUM_0;
+    i2c_mst_config.sda_io_num = GPIO_NUM_41;
+    i2c_mst_config.scl_io_num = GPIO_NUM_42;
+    i2c_mst_config.clk_source = I2C_CLK_SRC_DEFAULT;
+    i2c_mst_config.glitch_ignore_cnt = 7;
+    i2c_mst_config.intr_priority = 0;
+    i2c_mst_config.trans_queue_depth = 0;
+    i2c_mst_config.flags.enable_internal_pullup = true;
     
     err = i2c_new_master_bus(&i2c_mst_config, &i2c_bus_handle);
     if (err != ESP_OK) {
@@ -236,13 +237,13 @@ bool M5Paper3::init_touch()
   
   if (gt911_device_handle == NULL) {
     // Configure GT911 device on I2C0 bus
-    i2c_device_config_t dev_cfg = {
-      .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-      .device_address = 0x14,  // GT911 I2C address
-      .scl_speed_hz = 100000,  // 100 kHz
-      .scl_wait_us = 1000,
-      .flags = {.disable_ack_check = false}
-    };
+    i2c_device_config_t dev_cfg = {};
+    memset(&dev_cfg, 0, sizeof(dev_cfg));
+    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_cfg.device_address = 0x14;  // GT911 I2C address
+    dev_cfg.scl_speed_hz = 100000;  // 100 kHz
+    dev_cfg.scl_wait_us = 1000;
+    dev_cfg.flags.disable_ack_check = false;
     
     err = i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &gt911_device_handle);
     if (err != ESP_OK) {
