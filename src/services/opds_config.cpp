@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "opds_config.hpp"
 #include "esp_log.h"
 #include <fstream>
@@ -169,4 +167,4 @@ std::string OPDSConfig::to_json() const
   return json.str();
 }
 
-#endif // M5_PAPER_S3
+#endif // OPDS_CONFIG_CPP

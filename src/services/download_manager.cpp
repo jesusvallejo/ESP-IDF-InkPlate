@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "download_manager.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -275,4 +273,4 @@ std::string DownloadManager::format_time(uint32_t seconds)
   return std::string(buf);
 }
 
-#endif // M5_PAPER_S3
+#endif // DOWNLOAD_MANAGER_CPP

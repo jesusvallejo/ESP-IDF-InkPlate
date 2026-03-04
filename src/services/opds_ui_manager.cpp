@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "opds_ui_manager.hpp"
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -595,4 +593,4 @@ std::string OPDSUIManager::format_duration(uint32_t seconds)
   return std::string(buf);
 }
 
-#endif // M5_PAPER_S3
+#endif // OPDS_UI_MANAGER_CPP

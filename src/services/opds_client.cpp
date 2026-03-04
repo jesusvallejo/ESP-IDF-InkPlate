@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "opds_client.hpp"
 #include "esp_log.h"
 
@@ -367,4 +365,4 @@ std::string OPDSClient::to_hex(uint8_t c)
   return result;
 }
 
-#endif // M5_PAPER_S3
+#endif // OPDS_CLIENT_CPP

@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "opds_feed_parser.hpp"
 #include "esp_log.h"
 #include <sstream>
@@ -303,4 +301,4 @@ bool OPDSFeedParser::has_prev() const
   return !prev_page_url.empty();
 }
 
-#endif // M5_PAPER_S3
+#endif // OPDS_FEED_PARSER_CPP

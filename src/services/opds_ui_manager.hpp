@@ -1,7 +1,5 @@
 #pragma once
 
-#if M5_PAPER_S3
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -184,8 +182,6 @@ private:
   static std::string format_size(uint64_t bytes);
   static std::string format_duration(uint32_t seconds);
 };
-
-#endif // M5_PAPER_S3
 
 // Global OPDS UI manager singleton
 extern OPDSUIManager* g_opds_ui_manager;

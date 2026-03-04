@@ -1,7 +1,5 @@
 #pragma once
 
-#if M5_PAPER_S3
-
 #include <string>
 #include <cstdint>
 

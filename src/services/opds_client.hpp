@@ -1,7 +1,5 @@
 #pragma once
 
-#if M5_PAPER_S3
-
 #include "opds_config.hpp"
 #include "opds_feed_parser.hpp"
 #include "http_client.hpp"

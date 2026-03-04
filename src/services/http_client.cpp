@@ -1,5 +1,3 @@
-#if M5_PAPER_S3
-
 #include "http_client.hpp"
 #include "esp_log.h"
 #include "esp_http_client.h"
