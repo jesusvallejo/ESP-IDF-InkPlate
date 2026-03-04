@@ -108,50 +108,45 @@ bool OPDSConfig::parse_json(const std::string& json_str)
   // Simple JSON parser for OPDS config
   // Format: {"url":"...", "username":"...", "password":"...", "use_https":true}
 
-  try {
-    // Extract URL
-    size_t url_pos = json_str.find("\"url\":");
-    if (url_pos != std::string::npos) {
-      size_t start = json_str.find("\"", url_pos + 6);
-      size_t end = json_str.find("\"", start + 1);
-      if (start != std::string::npos && end != std::string::npos) {
-        config.url = json_str.substr(start + 1, end - start - 1);
-      }
+  // Extract URL
+  size_t url_pos = json_str.find("\"url\":");
+  if (url_pos != std::string::npos) {
+    size_t start = json_str.find("\"", url_pos + 6);
+    size_t end = json_str.find("\"", start + 1);
+    if (start != std::string::npos && end != std::string::npos) {
+      config.url = json_str.substr(start + 1, end - start - 1);
     }
-
-    // Extract username
-    size_t user_pos = json_str.find("\"username\":");
-    if (user_pos != std::string::npos) {
-      size_t start = json_str.find("\"", user_pos + 11);
-      size_t end = json_str.find("\"", start + 1);
-      if (start != std::string::npos && end != std::string::npos) {
-        config.username = json_str.substr(start + 1, end - start - 1);
-      }
-    }
-
-    // Extract password
-    size_t pass_pos = json_str.find("\"password\":");
-    if (pass_pos != std::string::npos) {
-      size_t start = json_str.find("\"", pass_pos + 11);
-      size_t end = json_str.find("\"", start + 1);
-      if (start != std::string::npos && end != std::string::npos) {
-        config.password = json_str.substr(start + 1, end - start - 1);
-      }
-    }
-
-    // Extract use_https
-    size_t https_pos = json_str.find("\"use_https\":");
-    if (https_pos != std::string::npos) {
-      size_t val_start = json_str.find_first_not_of(" \t\n\r", https_pos + 12);
-      std::string val_str = json_str.substr(val_start, 5);
-      config.use_https = (val_str.find("true") != std::string::npos);
-    }
-
-    return !config.url.empty();
-  } catch (...) {
-    ESP_LOGE(TAG, "Exception while parsing JSON");
-    return false;
   }
+
+  // Extract username
+  size_t user_pos = json_str.find("\"username\":");
+  if (user_pos != std::string::npos) {
+    size_t start = json_str.find("\"", user_pos + 11);
+    size_t end = json_str.find("\"", start + 1);
+    if (start != std::string::npos && end != std::string::npos) {
+      config.username = json_str.substr(start + 1, end - start - 1);
+    }
+  }
+
+  // Extract password
+  size_t pass_pos = json_str.find("\"password\":");
+  if (pass_pos != std::string::npos) {
+    size_t start = json_str.find("\"", pass_pos + 11);
+    size_t end = json_str.find("\"", start + 1);
+    if (start != std::string::npos && end != std::string::npos) {
+      config.password = json_str.substr(start + 1, end - start - 1);
+    }
+  }
+
+  // Extract use_https
+  size_t https_pos = json_str.find("\"use_https\":");
+  if (https_pos != std::string::npos) {
+    size_t val_start = json_str.find_first_not_of(" \t\n\r", https_pos + 12);
+    std::string val_str = json_str.substr(val_start, 5);
+    config.use_https = (val_str.find("true") != std::string::npos);
+  }
+
+  return !config.url.empty();
 }
 
 std::string OPDSConfig::to_json() const
@@ -166,5 +161,3 @@ std::string OPDSConfig::to_json() const
        << "}";
   return json.str();
 }
-
-#endif // OPDS_CONFIG_CPP

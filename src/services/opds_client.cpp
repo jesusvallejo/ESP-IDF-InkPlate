@@ -31,7 +31,7 @@ bool OPDSClient::init()
   config = std::make_unique<OPDSConfig>();
   http_client = std::make_unique<HTTPClient>();
   feed_parser = std::make_unique<OPDSFeedParser>();
-  download_manager = std::make_unique<DownloadManager>(http_client.get());
+  download_manager = std::make_unique<DownloadManager>();
 
   // Try to load existing configuration
   if (!config->load()) {
@@ -93,8 +93,8 @@ bool OPDSClient::fetch_catalog()
 
   ESP_LOGI(TAG, "Fetching catalog from: %s", url.c_str());
 
-  std::vector<uint8_t> response;
-  if (!http_client->get_content(url, cfg.username, cfg.password, response)) {
+  std::string response;
+  if (!http_client->get_content(url, response, cfg.username, cfg.password)) {
     ESP_LOGE(TAG, "Failed to fetch catalog: %s", http_client->get_last_error().c_str());
     return false;
   }
@@ -138,8 +138,8 @@ bool OPDSClient::fetch_feed(const std::string& feed_url)
 
   ESP_LOGI(TAG, "Fetching feed from: %s", full_url.c_str());
 
-  std::vector<uint8_t> response;
-  if (!http_client->get_content(full_url, cfg.username, cfg.password, response)) {
+  std::string response;
+  if (!http_client->get_content(full_url, response, cfg.username, cfg.password)) {
     ESP_LOGE(TAG, "Failed to fetch feed: %s", http_client->get_last_error().c_str());
     return false;
   }
@@ -154,10 +154,11 @@ bool OPDSClient::fetch_feed(const std::string& feed_url)
   return true;
 }
 
-std::vector<OPDSEntry> OPDSClient::get_current_entries() const
+const std::vector<OPDSEntry>& OPDSClient::get_entries() const
 {
+  static std::vector<OPDSEntry> empty;
   if (!feed_parser) {
-    return std::vector<OPDSEntry>();
+    return empty;
   }
 
   return feed_parser->get_entries();
@@ -232,8 +233,8 @@ bool OPDSClient::search_books(const std::string& query)
 
   ESP_LOGI(TAG, "Searching for: %s", query.c_str());
 
-  std::vector<uint8_t> response;
-  if (!http_client->get_content(search_url, cfg.username, cfg.password, response)) {
+  std::string response;
+  if (!http_client->get_content(search_url, response, cfg.username, cfg.password)) {
     ESP_LOGE(TAG, "Search failed: %s", http_client->get_last_error().c_str());
     return false;
   }
@@ -248,7 +249,9 @@ bool OPDSClient::search_books(const std::string& query)
   return true;
 }
 
-bool OPDSClient::download_book(size_t entry_index)
+bool OPDSClient::download_book(size_t entry_index,
+                               DownloadManager::ProgressCallback progress_cb,
+                               DownloadManager::CancelCallback cancel_cb)
 {
   if (!download_manager) {
     ESP_LOGE(TAG, "Not initialized");
@@ -260,8 +263,8 @@ bool OPDSClient::download_book(size_t entry_index)
     return false;
   }
 
-  OPDSEntry entry = feed_parser->get_entry(entry_index);
-  if (entry.title.empty() || entry.epub_url.empty()) {
+  const OPDSEntry* entry = feed_parser->get_entry(entry_index);
+  if (!entry || entry->title.empty() || entry->epub_url.empty()) {
     ESP_LOGE(TAG, "Invalid entry: %zu", entry_index);
     return false;
   }
@@ -269,19 +272,19 @@ bool OPDSClient::download_book(size_t entry_index)
   const OPDSConfig::Config& cfg = config->get_config();
 
   // Construct full EPUB URL if relative
-  std::string full_epub_url = entry.epub_url;
-  if (entry.epub_url[0] == '/' && !cfg.url.empty()) {
+  std::string full_epub_url = entry->epub_url;
+  if (entry->epub_url[0] == '/' && !cfg.url.empty()) {
     size_t schema_end = cfg.url.find("://");
     if (schema_end != std::string::npos) {
       size_t host_end = cfg.url.find("/", schema_end + 3);
       if (host_end != std::string::npos) {
-        full_epub_url = cfg.url.substr(0, host_end) + entry.epub_url;
+        full_epub_url = cfg.url.substr(0, host_end) + entry->epub_url;
       }
     }
   }
 
   // Construct file path
-  std::string filename = entry.title;
+  std::string filename = entry->title;
   // Remove invalid filename characters
   for (size_t i = 0; i < filename.size(); i++) {
     char c = filename[i];
@@ -293,9 +296,11 @@ bool OPDSClient::download_book(size_t entry_index)
 
   std::string filepath = "/sdcard/books/" + filename;
 
-  ESP_LOGI(TAG, "Starting download: %s -> %s", entry.title.c_str(), filepath.c_str());
+  ESP_LOGI(TAG, "Starting download: %s -> %s", entry->title.c_str(), filepath.c_str());
 
-  return download_manager->start_download(full_epub_url, cfg.username, cfg.password, filepath);
+  return download_manager->start_download(full_epub_url, entry->title, entry->author, 
+                                         entry->cover_url, cfg.username, cfg.password,
+                                         progress_cb, cancel_cb);
 }
 
 void OPDSClient::cancel_download()
@@ -364,5 +369,3 @@ std::string OPDSClient::to_hex(uint8_t c)
   result += hex_chars[c & 0x0F];
   return result;
 }
-
-#endif // OPDS_CLIENT_CPP

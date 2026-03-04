@@ -198,6 +198,8 @@ private:
   // Touch input state
   bool touch_in_progress;
   std::vector<TouchRegion> touch_regions;  // Active touch targets for current state
+  size_t touch_regions_for_keyboard;  // Number of touch regions for keyboard mode
+  std::string keyboard_mode;  // Current keyboard mode ("uppercase", "lowercase", etc)
   
   // Touch event handlers for each state
   void handle_menu_touch(int x, int y);
@@ -209,5 +211,3 @@ private:
 
 // Global OPDS UI manager singleton
 extern OPDSUIManager* g_opds_ui_manager;
-
-#endif // OPDS_UI_MANAGER_HPP

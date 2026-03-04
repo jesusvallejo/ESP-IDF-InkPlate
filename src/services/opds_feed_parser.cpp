@@ -6,7 +6,7 @@
 
 static const char* TAG = "OPDSParser";
 
-OPDSFeedParser::OPDSFeedParser() : current_page(1), total_pages(1)
+OPDSFeedParser::OPDSFeedParser()
 {
 }
 
@@ -14,21 +14,13 @@ OPDSFeedParser::~OPDSFeedParser()
 {
 }
 
-bool OPDSFeedParser::parse(const std::vector<uint8_t>& xml_data)
+bool OPDSFeedParser::parse(const std::string& xml_content)
 {
   entries.clear();
   next_page_url.clear();
   prev_page_url.clear();
 
-  // Convert binary data to string
-  std::string xml_str(xml_data.begin(), xml_data.end());
-
-  try {
-    return parse_xml(xml_str);
-  } catch (...) {
-    ESP_LOGE(TAG, "Exception while parsing OPDS feed");
-    return false;
-  }
+  return parse_xml(xml_content);
 }
 
 bool OPDSFeedParser::parse_xml(const std::string& xml_str)
@@ -44,7 +36,6 @@ bool OPDSFeedParser::parse_xml(const std::string& xml_str)
     }
 
     OPDSEntry entry;
-    entry.entry_index = entries.size();
 
     // Extract entry substring
     std::string entry_str = xml_str.substr(pos, entry_end - pos);
@@ -263,42 +254,19 @@ void OPDSFeedParser::decode_html_entities(std::string& str)
   }
 }
 
-std::vector<OPDSEntry> OPDSFeedParser::get_entries() const
-{
-  return entries;
-}
-
-OPDSEntry OPDSFeedParser::get_entry(size_t index) const
+const OPDSEntry* OPDSFeedParser::get_entry(size_t index) const
 {
   if (index < entries.size()) {
-    return entries[index];
+    return &entries[index];
   }
-  return OPDSEntry();
+  return nullptr;
 }
 
-size_t OPDSFeedParser::get_entry_count() const
+void OPDSFeedParser::clear()
 {
-  return entries.size();
+  entries.clear();
+  next_page_url.clear();
+  prev_page_url.clear();
+  feed_title.clear();
+  last_error.clear();
 }
-
-std::string OPDSFeedParser::get_next_page_url() const
-{
-  return next_page_url;
-}
-
-std::string OPDSFeedParser::get_prev_page_url() const
-{
-  return prev_page_url;
-}
-
-bool OPDSFeedParser::has_next() const
-{
-  return !next_page_url.empty();
-}
-
-bool OPDSFeedParser::has_prev() const
-{
-  return !prev_page_url.empty();
-}
-
-#endif // OPDS_FEED_PARSER_CPP

@@ -86,5 +86,3 @@ class OPDSConfig
      */
     std::string to_json() const;
 };
-
-#endif // M5_PAPER_S3

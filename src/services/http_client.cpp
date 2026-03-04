@@ -21,7 +21,7 @@ struct progress_ctx {
 };
 
 // Static callback for esp_http_client
-static esp_err_t http_event_handle_cb(esp_http_client_event_t *evt)
+static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
   http_buffer* buf = (http_buffer*)evt->user_data;
   
@@ -67,16 +67,16 @@ HTTPClient::~HTTPClient()
 }
 
 bool HTTPClient::get_content(const std::string& url,
+                              std::string& output_buffer,
                               const std::string& username,
-                              const std::string& password,
-                              std::vector<uint8_t>& out_data)
+                              const std::string& password)
 {
   last_error.clear();
-  out_data.clear();
+  output_buffer.clear();
 
   esp_http_client_config_t config = {};
   config.url = url.c_str();
-  config.event_handler = http_event_handle_cb;
+  config.event_handler = &http_event_handler;
 
   http_buffer buffer = {};
   config.user_data = &buffer;
@@ -91,7 +91,7 @@ bool HTTPClient::get_content(const std::string& url,
   // Add basic authentication if provided
   if (!username.empty() && !password.empty()) {
     std::string auth = username + ":" + password;
-    esp_http_client_set_authtype(client, HTTP_AUTH_BASIC);
+    esp_http_client_set_authtype(client, HTTP_AUTH_TYPE_BASIC);
     esp_http_client_set_username(client, username.c_str());
     esp_http_client_set_password(client, password.c_str());
   }
@@ -115,10 +115,10 @@ bool HTTPClient::get_content(const std::string& url,
   }
 
   // Copy buffer to output
-  out_data = buffer.data;
+  output_buffer = std::string((const char*)buffer.data.data(), buffer.data.size());
 
   esp_http_client_cleanup(client);
-  ESP_LOGI(TAG, "Downloaded %d bytes from %s", out_data.size(), url.c_str());
+  ESP_LOGI(TAG, "Downloaded %d bytes from %s", output_buffer.size(), url.c_str());
   
   return (last_response_code == 200);
 }
@@ -144,7 +144,7 @@ bool HTTPClient::download_file(const std::string& url,
 
   // Add basic authentication if provided
   if (!username.empty() && !password.empty()) {
-    esp_http_client_set_authtype(client, HTTP_AUTH_BASIC);
+    esp_http_client_set_authtype(client, HTTP_AUTH_TYPE_BASIC);
     esp_http_client_set_username(client, username.c_str());
     esp_http_client_set_password(client, password.c_str());
   }
@@ -241,15 +241,3 @@ bool HTTPClient::download_file(const std::string& url,
   ESP_LOGI(TAG, "Download complete: %llu bytes to %s", downloaded, filepath.c_str());
   return (last_response_code == 200);
 }
-
-std::string HTTPClient::get_last_error() const
-{
-  return last_error;
-}
-
-int HTTPClient::get_last_response_code() const
-{
-  return last_response_code;
-}
-
-#endif // M5_PAPER_S3

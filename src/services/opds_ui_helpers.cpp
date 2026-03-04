@@ -1,5 +1,6 @@
 #include "opds_ui_helpers.hpp"
 #include "esp_log.h"
+#include "../../../../src/helpers/opds_display_adapter.hpp"
 
 static const char* TAG = "OPDSUIHelpers";
 

@@ -1,7 +1,11 @@
 #include "opds_ui_manager.hpp"
 #include "opds_ui_helpers.hpp"
+#include "../../../../src/helpers/opds_display_adapter.hpp"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "m5_paper_s3.hpp"
 #include <cmath>
 #include <algorithm>
 #include <dirent.h>
@@ -482,6 +486,7 @@ void OPDSUIManager::handle_download_touch(int x, int y)
     opds_client->cancel_download();
     set_state(OPDS_STATE_BOOK_DETAILS);
   }
+}
 
 void OPDSUIManager::handle_menu_button(int button_id)
 {
@@ -654,7 +659,7 @@ void OPDSUIManager::fetch_catalog()
     return;
   }
 
-  current_entries = opds_client->get_current_entries();
+  current_entries = opds_client->get_entries();
   display_offset = 0;
   selected_book_index = 0;
   render();
@@ -827,11 +832,11 @@ std::string OPDSUIManager::format_duration(uint32_t seconds)
   uint32_t secs = seconds % 60;
 
   if (hours > 0) {
-    snprintf(buf, sizeof(buf), "%02u:%02u:%02u", hours, minutes, secs);
+    snprintf(buf, sizeof(buf), "%02lu:%02lu:%02lu", (unsigned long)hours, (unsigned long)minutes, (unsigned long)secs);
   } else if (minutes > 0) {
-    snprintf(buf, sizeof(buf), "%02u:%02u", minutes, secs);
+    snprintf(buf, sizeof(buf), "%02lu:%02lu", (unsigned long)minutes, (unsigned long)secs);
   } else {
-    snprintf(buf, sizeof(buf), "%us", secs);
+    snprintf(buf, sizeof(buf), "%lus", (unsigned long)secs);
   }
 
   return std::string(buf);
@@ -874,7 +879,7 @@ void OPDSUIManager::show_recent_downloads()
     }
 
     // Build full path
-    char full_path[256];
+    char full_path[512];
     snprintf(full_path, sizeof(full_path), "/sdcard/books/%s", filename);
     
     // Get file stats for size and modification date
@@ -963,7 +968,7 @@ void OPDSUIManager::show_search_ui()
   }
 
   // Display results
-  current_entries = opds_client->get_current_entries();
+  current_entries = opds_client->get_entries();
   display_offset = 0;
   selected_book_index = 0;
   set_state(OPDS_STATE_BROWSING);
@@ -1051,7 +1056,6 @@ void OPDSUIManager::input_text_field(const std::string& label,
            label.c_str(), max_length, validate_url, mask_input);
 
   std::string input_buffer = field_value;
-  int cursor_pos = 0;
   bool editing = true;
 
   // Production keyboard layout: QWERTY + special keys
@@ -1188,7 +1192,6 @@ void OPDSUIManager::input_text_field(const std::string& label,
         char key_char = action[4];
         if (input_buffer.length() < max_length) {
           input_buffer += key_char;
-          cursor_pos = input_buffer.length();
           ESP_LOGD(TAG, "Added key: '%c' -> buffer now: %s", key_char, 
                    mask_input ? std::string(input_buffer.length(), '*').c_str() : input_buffer.c_str());
         } else {
@@ -1198,14 +1201,12 @@ void OPDSUIManager::input_text_field(const std::string& label,
         // Backspace - delete last character
         if (!input_buffer.empty()) {
           input_buffer.pop_back();
-          cursor_pos = input_buffer.length();
           ESP_LOGD(TAG, "Backspace pressed -> buffer now: %s",
                    mask_input ? std::string(input_buffer.length(), '*').c_str() : input_buffer.c_str());
         }
       } else if (action == "action_clear") {
         // Clear all input
         input_buffer.clear();
-        cursor_pos = 0;
         ESP_LOGI(TAG, "Cleared input buffer");
       } else if (action == "action_done") {
         // Done editing - validate and save
@@ -1241,5 +1242,3 @@ void OPDSUIManager::input_text_field(const std::string& label,
 
   ESP_LOGI(TAG, "Input field %s completed", label.c_str());
 }
-
-#endif // OPDS_UI_MANAGER_CPP

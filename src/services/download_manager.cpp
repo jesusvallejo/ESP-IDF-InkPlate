@@ -1,4 +1,5 @@
 #include "download_manager.hpp"
+#include "http_client.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -43,15 +44,16 @@ static void download_task(void* pvParameters)
   ctx->manager->set_download_complete(success);
 
   // Cleanup
+  delete ctx->http_client;  // Delete HTTPClient
   delete ctx;
   download_task_handle = nullptr;
 
   vTaskDelete(nullptr);
 }
 
-DownloadManager::DownloadManager(HTTPClient* http_client)
-  : http_client(http_client),
-    is_downloading(false),
+DownloadManager::DownloadManager()
+  : downloading(false),
+    download_complete(false),
     cancel_requested(false),
     is_complete(false),
     download_success(false)
@@ -63,27 +65,33 @@ DownloadManager::DownloadManager(HTTPClient* http_client)
   progress.epoch_start = 0;
   progress.epoch_last_update = 0;
   progress.last_downloaded = 0;
+  progress.elapsed_seconds = 0;
+  progress.estimated_remaining_seconds = 0;
 }
 
 DownloadManager::~DownloadManager()
 {
-  if (is_downloading) {
+  if (downloading) {
     cancel_download();
   }
 }
 
 bool DownloadManager::start_download(const std::string& url,
+                                      const std::string& title,
+                                      const std::string& author,
+                                      const std::string& cover_url,
                                       const std::string& username,
                                       const std::string& password,
-                                      const std::string& filepath)
+                                      ProgressCallback progress_cb,
+                                      CancelCallback cancel_cb)
 {
-  if (is_downloading) {
+  if (downloading) {
     ESP_LOGW(TAG, "Download already in progress");
     return false;
   }
 
   // Reset state
-  is_downloading = true;
+  downloading = true;
   cancel_requested = false;
   is_complete = false;
   download_success = false;
@@ -95,14 +103,17 @@ bool DownloadManager::start_download(const std::string& url,
   progress.epoch_start = time(nullptr);
   progress.epoch_last_update = progress.epoch_start;
   progress.last_downloaded = 0;
+  progress.elapsed_seconds = 0;
+  progress.estimated_remaining_seconds = 0;
 
-  // Create task context
+  // Create task context with HTTPClient on heap
   DownloadTaskContext* ctx = new DownloadTaskContext();
-  ctx->http_client = http_client;
+  ctx->http_client = new HTTPClient();  // Create HTTP client on heap
   ctx->url = url;
   ctx->username = username;
   ctx->password = password;
-  ctx->filepath = filepath;
+  ctx->filepath = generate_dest_path(title);
+  current_file_path = ctx->filepath;
   ctx->manager = this;
 
   // Create FreeRTOS task for async download
@@ -118,7 +129,7 @@ bool DownloadManager::start_download(const std::string& url,
   if (ret != pdPASS) {
     ESP_LOGE(TAG, "Failed to create download task");
     delete ctx;
-    is_downloading = false;
+    downloading = false;
     return false;
   }
 
@@ -126,10 +137,10 @@ bool DownloadManager::start_download(const std::string& url,
   return true;
 }
 
-void DownloadManager::cancel_download()
+bool DownloadManager::cancel_download()
 {
-  if (!is_downloading) {
-    return;
+  if (!downloading) {
+    return false;
   }
 
   ESP_LOGI(TAG, "Cancel requested");
@@ -137,14 +148,17 @@ void DownloadManager::cancel_download()
 
   // Wait for task to complete (max 5 seconds)
   int attempts = 0;
-  while (is_downloading && attempts < 50) {
+  while (downloading && attempts < 50) {
     vTaskDelay(pdMS_TO_TICKS(100));
     attempts++;
   }
 
-  if (is_downloading) {
+  if (downloading) {
     ESP_LOGW(TAG, "Download task did not stop within timeout");
+    return false;
   }
+
+  return true;
 }
 
 void DownloadManager::update_progress(uint64_t downloaded, uint64_t total)
@@ -186,7 +200,7 @@ void DownloadManager::update_progress(uint64_t downloaded, uint64_t total)
 
 void DownloadManager::set_download_complete(bool success)
 {
-  is_downloading = false;
+  downloading = false;
   is_complete = true;
   download_success = success;
 
@@ -199,7 +213,7 @@ void DownloadManager::set_download_complete(bool success)
 
 bool DownloadManager::is_downloading_now() const
 {
-  return is_downloading;
+  return downloading;
 }
 
 bool DownloadManager::is_cancel_requested() const
@@ -215,11 +229,6 @@ bool DownloadManager::is_download_complete() const
 bool DownloadManager::was_download_successful() const
 {
   return download_success;
-}
-
-DownloadProgress DownloadManager::get_progress() const
-{
-  return progress;
 }
 
 float DownloadManager::get_speed_mbps() const
@@ -265,12 +274,24 @@ std::string DownloadManager::format_time(uint32_t seconds)
   uint32_t secs = seconds % 60;
 
   if (hours > 0) {
-    snprintf(buf, sizeof(buf), "%02u:%02u:%02u", hours, minutes, secs);
+    snprintf(buf, sizeof(buf), "%02lu:%02lu:%02lu", (unsigned long)hours, (unsigned long)minutes, (unsigned long)secs);
   } else {
-    snprintf(buf, sizeof(buf), "%02u:%02u", minutes, secs);
+    snprintf(buf, sizeof(buf), "%02lu:%02lu", (unsigned long)minutes, (unsigned long)secs);
   }
-
   return std::string(buf);
 }
 
-#endif // DOWNLOAD_MANAGER_CPP
+std::string DownloadManager::generate_dest_path(const std::string& title)
+{
+  // Generate destination path for downloaded book
+  std::string safe_title = title;
+  
+  // Replace unsafe characters with underscore
+  for (char& c : safe_title) {
+    if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+      c = '_';
+    }
+  }
+  
+  return "/sdcard/books/" + safe_title + ".epub";
+}

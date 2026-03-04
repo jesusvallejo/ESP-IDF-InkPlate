@@ -28,15 +28,15 @@ class HTTPClient
     /**
      * @brief Fetch content from URL (for OPDS feeds)
      * @param url URL to fetch
+     * @param output_buffer Buffer to store response
      * @param username Optional username for basic auth
      * @param password Optional password for basic auth
-     * @param output_buffer Buffer to store response
      * @return true if successful
      */
     bool get_content(const std::string& url, 
+                     std::string& output_buffer,
                      const std::string& username = "",
-                     const std::string& password = "",
-                     std::string& output_buffer = "");
+                     const std::string& password = "");
 
     /**
      * @brief Download file with progress tracking
@@ -65,11 +65,11 @@ class HTTPClient
      * @brief Get HTTP response code from last operation
      * @return HTTP status code (0 if error)
      */
-    int get_response_code() const { return response_code; }
+    int get_last_response_code() const { return last_response_code; }
 
   private:
     std::string last_error;
-    int response_code;
+    int last_response_code;
 
     /**
      * @brief Build basic auth header
@@ -79,5 +79,3 @@ class HTTPClient
      */
     std::string build_auth_header(const std::string& username, const std::string& password);
 };
-
-#endif // M5_PAPER_S3

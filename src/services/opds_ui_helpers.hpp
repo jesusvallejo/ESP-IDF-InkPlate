@@ -59,5 +59,3 @@ private:
   static const int SCREEN_HEIGHT;
   static const int PADDING;
 };
-
-#endif // OPDS_UI_HELPERS_HPP

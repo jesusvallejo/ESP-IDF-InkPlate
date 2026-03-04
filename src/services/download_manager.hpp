@@ -107,9 +107,28 @@ class DownloadManager
      */
     std::string get_downloaded_file_path() const { return downloaded_file_path; }
 
+    // Internal helper methods for progress tracking
+    void update_progress(uint64_t downloaded, uint64_t total);
+    void set_download_complete(bool success);
+    bool is_downloading_now() const;
+    bool is_cancel_requested() const;
+    bool is_download_complete() const;
+    bool was_download_successful() const;
+    DownloadProgress get_progress_struct() const { return progress; }
+    float get_speed_mbps() const;
+    uint8_t get_percentage() const;
+    uint32_t get_elapsed_seconds() const;
+    uint32_t get_estimated_remaining_seconds() const;
+    
+    static std::string format_size(uint64_t bytes);
+    static std::string format_time(uint32_t seconds);
+
   private:
     bool downloading;
     bool download_complete;
+    bool cancel_requested;
+    bool is_complete;
+    bool download_success;
     DownloadProgress progress;
     std::string current_file_path;
     std::string downloaded_file_path;
@@ -122,31 +141,7 @@ class DownloadManager
      * @return Full path where book should be saved
      */
     std::string generate_dest_path(const std::string& title);
-
-    /**
-     * @brief Download book file
-     * Runs in separate task to avoid blocking UI
-     * @param url Download URL
-     * @param dest_path Destination file path
-     * @param username Optional auth username
-     * @param password Optional auth password
-     * @param progress_cb Progress callback
-     * @param cancel_cb Cancellation callback
-     */
-    void download_task(const std::string& url,
-                      const std::string& dest_path,
-                      const std::string& username,
-                      const std::string& password,
-                      ProgressCallback progress_cb,
-                      CancelCallback cancel_cb);
-
-    /**
-     * @brief Download and save cover image
-     * @param url Cover URL
-     * @param book_title Title for cover filename
-     * @return true if successful
-     */
-    bool download_cover(const std::string& url, const std::string& book_title);
 };
 
-#endif // M5_PAPER_S3
+// Global download manager singleton
+extern DownloadManager* g_download_manager;

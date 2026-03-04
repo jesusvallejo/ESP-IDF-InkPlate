@@ -89,6 +89,18 @@ class OPDSFeedParser
      */
     std::string get_last_error() const { return last_error; }
 
+    /**
+     * @brief Check if next page is available
+     * @return true if next page URL exists
+     */
+    bool has_next() const { return !next_page_url.empty(); }
+
+    /**
+     * @brief Check if previous page is available
+     * @return true if previous page URL exists
+     */
+    bool has_prev() const { return !prev_page_url.empty(); }
+
   private:
     std::vector<OPDSEntry> entries;
     std::string next_page_url;
@@ -97,23 +109,59 @@ class OPDSFeedParser
     std::string last_error;
 
     /**
-     * @brief Extract text from XML element
-     * @param xml XML content
-     * @param tag Tag name (without <>)
-     * @param start_pos Starting position for search
-     * @return Extracted text or empty string
+     * @brief Parse XML feed content
+     * @param xml_str XML feed content
+     * @return true if parsed successfully
      */
-    std::string extract_tag_content(const std::string& xml, 
-                                   const std::string& tag, 
-                                   size_t start_pos = 0);
+    bool parse_xml(const std::string& xml_str);
 
     /**
-     * @brief Extract attribute from XML element
-     * @param element XML element string
-     * @param attr Attribute name
-     * @return Attribute value or empty string
+     * @brief Extract text content between XML tags
+     * @param str Input string
+     * @param start_tag Opening tag
+     * @param end_tag Closing tag
+     * @param out_text Extracted text
+     * @return true if text was found
      */
-    std::string extract_attribute(const std::string& element, const std::string& attr);
-};
+    bool extract_text(const std::string& str,
+                     const std::string& start_tag,
+                     const std::string& end_tag,
+                     std::string& out_text);
 
-#endif // M5_PAPER_S3
+    /**
+     * @brief Extract link from OPDS entry
+     * @param str Entry string
+     * @param rel Link relationship/type
+     * @param out_url Extracted URL
+     * @return true if link was found
+     */
+    bool extract_link(const std::string& str,
+                     const std::string& rel,
+                     std::string& out_url);
+
+    /**
+     * @brief Extract file size from link attributes
+     * @param str Entry or link string
+     * @param out_size Extracted file size
+     * @return true if size was found
+     */
+    bool extract_file_size(const std::string& str, uint64_t& out_size);
+
+    /**
+     * @brief Extract pagination links from feed
+     * @param xml_str Full feed XML
+     */
+    void extract_pagination(const std::string& xml_str);
+
+    /**
+     * @brief Trim whitespace from string
+     * @param str String to trim
+     */
+    void trim(std::string& str);
+
+    /**
+     * @brief Decode HTML entities in string
+     * @param str String to decode
+     */
+    void decode_html_entities(std::string& str);
+};

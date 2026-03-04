@@ -94,7 +94,7 @@ class OPDSClient
      * @brief Get download manager
      * @return Reference to download manager
      */
-    DownloadManager& get_download_manager() { return download_mgr; }
+    DownloadManager& get_download_manager() { return *download_manager; }
 
     /**
      * @brief Get configuration object
@@ -121,6 +121,47 @@ class OPDSClient
     bool prev_page();
 
     /**
+     * @brief Check if current feed has next page
+     * @return true if next page available
+     */
+    bool has_next_page() const;
+
+    /**
+     * @brief Check if current feed has previous page
+     * @return true if previous page available
+     */
+    bool has_prev_page() const;
+
+    /**
+     * @brief Cancel ongoing download
+     */
+    void cancel_download();
+
+    /**
+     * @brief Check if download is in progress
+     * @return true if downloading
+     */
+    bool is_download_in_progress() const;
+
+    /**
+     * @brief Check if download is complete
+     * @return true if download finished
+     */
+    bool is_download_complete() const;
+
+    /**
+     * @brief Check if last download was successful
+     * @return true if succeeded
+     */
+    bool was_download_successful() const;
+
+    /**
+     * @brief Get current download progress
+     * @return Download progress information
+     */
+    DownloadProgress get_download_progress() const;
+
+    /**
      * @brief Get last error message
      * @return Error description
      */
@@ -142,10 +183,29 @@ class OPDSClient
     std::string current_feed_url;
 
     /**
+     * @brief Cleanup resources
+     */
+    void cleanup();
+
+    /**
      * @brief Build OPDS server base URL
      * @return Full base URL for OPDS server
      */
     std::string build_server_url() const;
+
+    /**
+     * @brief URL encode string for use in queries
+     * @param str String to encode
+     * @return URL-encoded string
+     */
+    static std::string url_encode(const std::string& str);
+
+    /**
+     * @brief Convert byte to hex string
+     * @param c Byte value
+     * @return Hex representation
+     */
+    static std::string to_hex(uint8_t c);
 
     /**
      * @brief Default OPDS endpoints
@@ -156,5 +216,3 @@ class OPDSClient
 
 // Global singleton instance
 extern OPDSClient g_opds_client;
-
-#endif // M5_PAPER_S3
