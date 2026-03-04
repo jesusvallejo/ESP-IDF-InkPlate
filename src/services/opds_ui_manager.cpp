@@ -794,32 +794,30 @@ void OPDSUIManager::show_search_ui()
     return;
   }
 
-  // Full search UI implementation:
+  // Production implementation - User-driven search with text input
   // 1. Display text input field for search query
-  // 2. Show on-screen keyboard
-  // 3. Allow user to type search terms
+  // 2. Show on-screen keyboard for character entry
+  // 3. Accept user input - user types search terms
   // 4. Send search to OPDS server
   // 5. Display results in book list
 
-  // Predefine search categories
-  std::vector<std::string> search_options = {
-    "fiction", "science", "history", "romance", "thriller", 
-    "mystery", "biography", "technology", "adventure", "classic"
-  };
+  ESP_LOGI(TAG, "Opening search UI - waiting for user input");
 
-  // Log available search options
-  ESP_LOGI(TAG, "Search options available: %zu categories", search_options.size());
-  for (const auto& opt : search_options) {
-    ESP_LOGD(TAG, "  - %s", opt.c_str());
+  // Get search query from user via text input field
+  std::string search_query = "";
+  ESP_LOGD(TAG, "Displaying search input field");
+  input_text_field("Search Books", search_query, 64, false, false);
+
+  // If user cancelled (empty query), return to menu
+  if (search_query.empty()) {
+    ESP_LOGI(TAG, "Search cancelled - empty query");
+    set_state(OPDS_STATE_MENU);
+    return;
   }
-  
-  // Rotate through search options for demo (cycle through categories)
-  static int search_index = 0;
-  std::string search_query = search_options[search_index % search_options.size()];
-  search_index++;
-  
-  ESP_LOGI(TAG, "Executing search query: '%s'", search_query.c_str());
 
+  ESP_LOGI(TAG, "User entered search query: '%s'", search_query.c_str());
+
+  // Send search to OPDS server
   if (!opds_client->search_books(search_query)) {
     std::string error_msg = "Search failed: " + opds_client->get_last_error();
     ESP_LOGE(TAG, "%s", error_msg.c_str());
@@ -827,12 +825,13 @@ void OPDSUIManager::show_search_ui()
     return;
   }
 
+  // Display results
   current_entries = opds_client->get_current_entries();
   display_offset = 0;
   selected_book_index = 0;
   set_state(OPDS_STATE_BROWSING);
 
-  ESP_LOGI(TAG, "Search successful! Returned %zu results for '%s'", 
+  ESP_LOGI(TAG, "Search complete! Returned %zu results for query: '%s'", 
            current_entries.size(), search_query.c_str());
 }
 
