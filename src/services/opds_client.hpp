@@ -34,7 +34,7 @@ class OPDSClient
      * @brief Check if configured (has server URL)
      * @return true if configured
      */
-    bool is_configured() const;
+    bool is_configured() const { return config && !config->get_config().url.empty(); }
 
     /**
      * @brief Configure OPDS server
@@ -99,10 +99,16 @@ class OPDSClient
     DownloadManager& get_download_manager() { return download_mgr; }
 
     /**
-     * @brief Get configuration
-     * @return Reference to config object
+     * @brief Get configuration object
+     * @return Pointer to config object
      */
-    OPDSConfig& get_config() { return config; }
+    OPDSConfig* get_config() { return config.get(); }
+
+    /**
+     * @brief Get HTTP client
+     * @return Pointer to HTTP client
+     */
+    HTTPClient* get_http_client() { return http_client.get(); }
 
     /**
      * @brief Navigate to next page in current feed
@@ -129,10 +135,11 @@ class OPDSClient
     bool is_network_available() const;
 
   private:
-    OPDSConfig config;
-    HTTPClient http_client;
-    OPDSFeedParser feed_parser;
-    DownloadManager download_mgr;
+    std::unique_ptr<OPDSConfig> config;
+    std::unique_ptr<HTTPClient> http_client;
+    std::unique_ptr<OPDSFeedParser> feed_parser;
+    std::unique_ptr<DownloadManager> download_manager;
+    bool is_initialized;
     std::string last_error;
     std::string current_feed_url;
 
