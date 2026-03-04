@@ -80,6 +80,7 @@ public:
   bool setup();
 
   void update(FrameBuffer1Bit &frame_buffer);
+  void update(FrameBuffer2Bit &frame_buffer);
   void update(FrameBuffer3Bit &frame_buffer);
 
   void partial_update(FrameBuffer1Bit &frame_buffer, bool force = false);
