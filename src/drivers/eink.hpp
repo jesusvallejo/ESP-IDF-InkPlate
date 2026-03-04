@@ -9,10 +9,12 @@
   #include "soc/gpio_sig_map.h"
 #endif
 
-#if PCAL6416
-  #include "pcal6416.hpp"
-#else
-  #include "mcp23017.hpp"
+#if !M5_PAPER_S3
+  #if PCAL6416
+    #include "pcal6416.hpp"
+  #else
+    #include "mcp23017.hpp"
+  #endif
 #endif
 
 class EInk
@@ -25,6 +27,7 @@ class EInk
     inline bool        is_initialized() { return initialized; }
 
     virtual inline FrameBuffer1Bit * new_frame_buffer_1bit() = 0;
+    virtual inline FrameBuffer2Bit * new_frame_buffer_2bit() { return nullptr; }  // Optional for devices that support 2-bit
     virtual inline FrameBuffer3Bit * new_frame_buffer_3bit() = 0;
 
     virtual inline int16_t get_width()  = 0;
@@ -45,6 +48,7 @@ class EInk
     virtual bool setup() = 0;
 
     virtual inline void update(FrameBuffer1Bit & frame_buffer) = 0;
+    virtual inline void update(FrameBuffer2Bit & frame_buffer) { }  // Optional for devices that support 2-bit
     virtual inline void update(FrameBuffer3Bit & frame_buffer) = 0;
 
     virtual void partial_update(FrameBuffer1Bit & frame_buffer, bool force = false) = 0;
@@ -60,7 +64,13 @@ class EInk
 
   protected:                     
     
-    #if INKPLATE_6 || INKPLATE_6V2 || INKPLATE_6FLICK
+    #if M5_PAPER_S3
+      EInk() : 
+        panel_state(PanelState::OFF), 
+        initialized(false),
+        partial_allowed(false) {
+        }
+    #elif INKPLATE_6 || INKPLATE_6V2 || INKPLATE_6FLICK
       EInk(IOExpander & io_expander, const int screen_width) : 
         io_expander_int(io_expander),
         i2s_comms(I2SComms((screen_width / 4) + 16)),
@@ -80,7 +90,9 @@ class EInk
     static const uint8_t PWRMGR_ADDRESS = 0x48;
     static const uint8_t PWR_GOOD_OK    = 0b11111010;
 
-    IOExpander & io_expander_int;
+    #if !M5_PAPER_S3
+      IOExpander & io_expander_int;
+    #endif
 
     WireDevice * wire_device;
     
@@ -118,15 +130,17 @@ class EInk
     uint32_t        * GLUT;
     uint32_t        * GLUT2;
 
-    const IOExpander::Pin OE             = IOExpander::Pin::IOPIN_0;
-    const IOExpander::Pin GMOD           = IOExpander::Pin::IOPIN_1;
-    const IOExpander::Pin SPV            = IOExpander::Pin::IOPIN_2;
+    #if !M5_PAPER_S3
+      const IOExpander::Pin OE             = IOExpander::Pin::IOPIN_0;
+      const IOExpander::Pin GMOD           = IOExpander::Pin::IOPIN_1;
+      const IOExpander::Pin SPV            = IOExpander::Pin::IOPIN_2;
 
-    const IOExpander::Pin WAKEUP         = IOExpander::Pin::IOPIN_3;
-    const IOExpander::Pin PWRUP          = IOExpander::Pin::IOPIN_4;
-    const IOExpander::Pin VCOM           = IOExpander::Pin::IOPIN_5;
-    
-    const IOExpander::Pin GPIO0_ENABLE   = IOExpander::Pin::IOPIN_8;
+      const IOExpander::Pin WAKEUP         = IOExpander::Pin::IOPIN_3;
+      const IOExpander::Pin PWRUP          = IOExpander::Pin::IOPIN_4;
+      const IOExpander::Pin VCOM           = IOExpander::Pin::IOPIN_5;
+      
+      const IOExpander::Pin GPIO0_ENABLE   = IOExpander::Pin::IOPIN_8;
+    #endif
 
     inline void cl_set()       { GPIO.out_w1ts = CL; }
     inline void cl_clear()     { GPIO.out_w1tc = CL; }
@@ -140,22 +154,24 @@ class EInk
     inline void le_set()       { GPIO.out_w1ts = LE; }
     inline void le_clear()     { GPIO.out_w1tc = LE; }
 
-    inline void oe_set()       { io_expander_int.digital_write(OE,     IOExpander::SignalLevel::HIGH); }
-    inline void oe_clear()     { io_expander_int.digital_write(OE,     IOExpander::SignalLevel::LOW ); }
+    #if !M5_PAPER_S3
+      inline void oe_set()       { io_expander_int.digital_write(OE,     IOExpander::SignalLevel::HIGH); }
+      inline void oe_clear()     { io_expander_int.digital_write(OE,     IOExpander::SignalLevel::LOW ); }
 
-    inline void gmod_set()     { io_expander_int.digital_write(GMOD,   IOExpander::SignalLevel::HIGH); }
-    inline void gmod_clear()   { io_expander_int.digital_write(GMOD,   IOExpander::SignalLevel::LOW ); }
+      inline void gmod_set()     { io_expander_int.digital_write(GMOD,   IOExpander::SignalLevel::HIGH); }
+      inline void gmod_clear()   { io_expander_int.digital_write(GMOD,   IOExpander::SignalLevel::LOW ); }
 
-    inline void spv_set()      { io_expander_int.digital_write(SPV,    IOExpander::SignalLevel::HIGH); }
-    inline void spv_clear()    { io_expander_int.digital_write(SPV,    IOExpander::SignalLevel::LOW ); }
+      inline void spv_set()      { io_expander_int.digital_write(SPV,    IOExpander::SignalLevel::HIGH); }
+      inline void spv_clear()    { io_expander_int.digital_write(SPV,    IOExpander::SignalLevel::LOW ); }
 
-    inline void wakeup_set()   { io_expander_int.digital_write(WAKEUP, IOExpander::SignalLevel::HIGH); }
-    inline void wakeup_clear() { io_expander_int.digital_write(WAKEUP, IOExpander::SignalLevel::LOW ); }
+      inline void wakeup_set()   { io_expander_int.digital_write(WAKEUP, IOExpander::SignalLevel::HIGH); }
+      inline void wakeup_clear() { io_expander_int.digital_write(WAKEUP, IOExpander::SignalLevel::LOW ); }
 
-    inline void pwrup_set()    { io_expander_int.digital_write(PWRUP,  IOExpander::SignalLevel::HIGH); }
-    inline void pwrup_clear()  { io_expander_int.digital_write(PWRUP,  IOExpander::SignalLevel::LOW ); }
+      inline void pwrup_set()    { io_expander_int.digital_write(PWRUP,  IOExpander::SignalLevel::HIGH); }
+      inline void pwrup_clear()  { io_expander_int.digital_write(PWRUP,  IOExpander::SignalLevel::LOW ); }
 
-    inline void vcom_set()     { io_expander_int.digital_write(VCOM,   IOExpander::SignalLevel::HIGH); }
-    inline void vcom_clear()   { io_expander_int.digital_write(VCOM,   IOExpander::SignalLevel::LOW ); }
+      inline void vcom_set()     { io_expander_int.digital_write(VCOM,   IOExpander::SignalLevel::HIGH); }
+      inline void vcom_clear()   { io_expander_int.digital_write(VCOM,   IOExpander::SignalLevel::LOW ); }
+    #endif
 };
 

@@ -49,6 +49,7 @@ const uint32_t EInk::PIN_LUT[256] = {
 void 
 EInk::turn_off()
 {
+#if !M5_PAPER_S3
   if (get_panel_state() == PanelState::OFF) return;
  
   oe_clear();
@@ -78,6 +79,7 @@ EInk::turn_off()
   #endif
 
   pins_z_state();
+#endif
   set_panel_state(PanelState::OFF);
 
   ESP_LOGD(TAG, "EInk is off");
@@ -88,6 +90,7 @@ EInk::turn_off()
 bool 
 EInk::turn_on()
 {
+#if !M5_PAPER_S3
   if (get_panel_state() == PanelState::ON) return true;
 
   wakeup_set();
@@ -146,6 +149,7 @@ EInk::turn_on()
   }
 
   oe_set();
+#endif
   set_panel_state(PanelState::ON);
 
   ESP_LOGD(TAG, "EInk is on");
@@ -155,7 +159,10 @@ EInk::turn_on()
 uint8_t 
 EInk::read_power_good()
 {
+#if !M5_PAPER_S3
   return wire_device->cmd_read(0x0F);
+#endif
+  return 0;
 
   // wire.begin_transmission(PWRMGR_ADDRESS);
   // wire.write(0x0F);
@@ -170,6 +177,7 @@ EInk::read_power_good()
 void 
 EInk::vscan_start()
 {
+#if !M5_PAPER_S3
   ckv_set();   ESP::delay_microseconds( 7);
   spv_clear(); ESP::delay_microseconds(10);
   ckv_clear(); ESP::delay_microseconds( 0);
@@ -181,31 +189,37 @@ EInk::vscan_start()
   ckv_set();   ESP::delay_microseconds(18);
   ckv_clear(); ESP::delay_microseconds( 0);
   ckv_set();
+#endif
 }
 
 void 
 EInk::hscan_start(uint32_t d)
 {
+#if !M5_PAPER_S3
   sph_clear();
   GPIO.out_w1ts = CL | d   ;
   GPIO.out_w1tc = CL | DATA;
   sph_set();
   ckv_set();
+#endif
 }
 
 void 
 EInk::vscan_end()
 {
+#if !M5_PAPER_S3
   ckv_clear();
      le_set();
    le_clear();
 
   ESP::delay_microseconds(0);
+#endif
 }
 
 void 
 EInk::pins_z_state()
 {
+#if !M5_PAPER_S3
   gpio_set_direction(GPIO_NUM_2,  GPIO_MODE_INPUT);
   gpio_set_direction(GPIO_NUM_32, GPIO_MODE_INPUT);
   gpio_set_direction(GPIO_NUM_33, GPIO_MODE_INPUT);
@@ -227,11 +241,13 @@ EInk::pins_z_state()
   #if INKPLATE_6 || INKPLATE_6V2 || INKPLATE_6FLICK
     i2s_comms.stop_clock();
   #endif
+#endif
 }
 
 void 
 EInk::pins_as_outputs()
 {
+#if !M5_PAPER_S3
   gpio_set_direction(GPIO_NUM_2,  GPIO_MODE_OUTPUT);
   gpio_set_direction(GPIO_NUM_32, GPIO_MODE_OUTPUT);
   gpio_set_direction(GPIO_NUM_33, GPIO_MODE_OUTPUT);
@@ -267,12 +283,14 @@ EInk::pins_as_outputs()
     gpio_set_direction(GPIO_NUM_27, GPIO_MODE_OUTPUT);
     
   #endif
+#endif
 }
 
 
 int8_t 
 EInk::read_temperature()
 {
+#if !M5_PAPER_S3
   int8_t temp;
   
   if (get_panel_state() == PanelState::OFF) {
@@ -321,4 +339,6 @@ EInk::read_temperature()
   }
 
   return temp;
+#endif
+  return 0;
 }

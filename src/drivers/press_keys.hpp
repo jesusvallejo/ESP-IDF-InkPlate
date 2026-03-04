@@ -1,5 +1,7 @@
 #pragma once
 
+#if !M5_PAPER_S3
+
 #include "non_copyable.hpp"
 
 #if PCAL6416
@@ -47,3 +49,5 @@ class PressKeys : NonCopyable
     const IOExpander::Pin PRESS_5 = IOExpander::Pin::IOPIN_15;
 
 };
+
+#endif // !M5_PAPER_S3

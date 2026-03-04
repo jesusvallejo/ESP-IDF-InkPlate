@@ -1,6 +1,11 @@
 #pragma once
 
 #include "non_copyable.hpp"
+#include <cstdint>
+
+#if !M5_PAPER_S3
+
+#include "soc/gpio_num.h"
 
 #if PCAL6416
   #include "pcal6416.hpp"
@@ -15,7 +20,7 @@ class TouchKeys : NonCopyable
 
     static const gpio_num_t INTERRUPT_PIN = GPIO_NUM_34;
 
-   TouchKeys(IOExpander & _io_expander) : io_expander(_io_expander) {}
+    TouchKeys(IOExpander & _io_expander) : io_expander(_io_expander) {}
     bool setup();
 
     /**
@@ -42,5 +47,18 @@ class TouchKeys : NonCopyable
     const IOExpander::Pin TOUCH_0 = IOExpander::Pin::IOPIN_10;
     const IOExpander::Pin TOUCH_1 = IOExpander::Pin::IOPIN_11;
     const IOExpander::Pin TOUCH_2 = IOExpander::Pin::IOPIN_12;
-
 };
+
+#else
+
+// M5 Paper S3 doesn't have touch keys - provide dummy implementation
+class TouchKeys : NonCopyable 
+{
+  public:
+    TouchKeys() {}
+    bool setup() { return true; }
+    uint8_t read_key(uint8_t key) { return 0; }
+    uint8_t read_all_keys() { return 0; }
+};
+
+#endif  // !M5_PAPER_S3

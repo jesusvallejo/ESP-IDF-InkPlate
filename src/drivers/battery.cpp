@@ -6,7 +6,9 @@
 bool
 Battery::setup()
 {
+#if !M5_PAPER_S3
   io_expander.set_direction(BATTERY_SWITCH, IOExpander::PinMode::OUTPUT);
+#endif
 
   adc_unit_config = {
     .unit_id = ADC_UNIT_1,
@@ -29,16 +31,18 @@ Battery::setup()
 double 
 Battery::read_level()
 {
+#if M5_PAPER_S3
+  // For M5 Paper S3, use AXP2101 power manager
+  float voltage = power_manager.get_battery_voltage();
+  
+  // Return voltage as-is (0.0 to 5.0V)
+  return static_cast<double>(voltage);
+#else
   Wire::enter();
   io_expander.digital_write(BATTERY_SWITCH, IOExpander::SignalLevel::HIGH);
   Wire::leave();
 
   ESP::delay(1);
-  
-  // adc1_config_width(ADC_WIDTH_BIT_12);
-  // adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
-
-  // int16_t adc = ESP::analog_read(ADC1_CHANNEL_7); // ADC 1 Channel 7 is GPIO port 35
   
   int adc_value;
   adc_oneshot_read(adc_handle, ADC_CHANNEL_7, &adc_value);
@@ -48,4 +52,5 @@ Battery::read_level()
   Wire::leave();
 
   return (double(adc_value) * 1.1 * 3.548133892 * 2) / 4095.0;
+#endif
 }

@@ -268,6 +268,82 @@ void EInk6::update(FrameBuffer1Bit &frame_buffer) {
   allow_partial();
 }
 
+void EInk6::update(FrameBuffer2Bit &frame_buffer) {
+  ESP_LOGD(TAG, "2bit Update...");
+
+  Wire::enter();
+  if (!turn_on()) {
+    Wire::leave();
+    return;
+  }
+
+  clean(PixelState::WHITE, 1);
+  clean(PixelState::BLACK, 21);
+  clean(PixelState::DISCHARGE, 1);
+  clean(PixelState::WHITE, 12);
+  clean(PixelState::DISCHARGE, 1);
+  clean(PixelState::BLACK, 21);
+  clean(PixelState::DISCHARGE, 1);
+  clean(PixelState::WHITE, 12);
+
+  uint8_t *data = frame_buffer.get_data();
+
+  // Convert 2-bit data to 3-bit equivalent for display
+  // 2-bit format: 4 pixels per byte (2 bits each)
+  // We process it by converting 2-bit values (0-3) to 3-bit values (0-7)
+  static const uint8_t BIT2_TO_3BIT_LUT[4] = {0, 2, 5, 7};  // Linear scaling: 0->0, 1->2, 2->5, 3->7
+
+  for (int k = 0, kk = 0; k < 8; k++, kk += 256) {
+
+    const uint8_t *dp = &data[frame_buffer.get_data_size() - 1];
+
+    vscan_start();
+
+    for (int i = 0; i < HEIGHT; i++) {
+
+      // For 2-bit buffer, each byte has 4 pixels (2 bits each)
+      // Convert each 2-bit pixel to 3-bit value for the lookup table
+      uint8_t byte_val = *dp--;
+      uint8_t p0 = BIT2_TO_3BIT_LUT[(byte_val >> 6) & 0x3];
+      uint8_t p1 = BIT2_TO_3BIT_LUT[(byte_val >> 4) & 0x3];
+      uint8_t p2 = BIT2_TO_3BIT_LUT[(byte_val >> 2) & 0x3];
+      uint8_t p3 = BIT2_TO_3BIT_LUT[byte_val & 0x3];
+      
+      uint8_t send = GLUT[kk + ((p1 << 4) | p0)] | GLUT2[kk + ((p3 << 4) | p2)];
+      hscan_start(send);
+      GPIO.out_w1ts = CL | send;
+      GPIO.out_w1tc = CL | DATA;
+
+      // Process remaining pixels
+      for (int j = 0; j < ((WIDTH / 4) - 1); j++) {
+        byte_val = *dp--;
+        p0 = BIT2_TO_3BIT_LUT[(byte_val >> 6) & 0x3];
+        p1 = BIT2_TO_3BIT_LUT[(byte_val >> 4) & 0x3];
+        p2 = BIT2_TO_3BIT_LUT[(byte_val >> 2) & 0x3];
+        p3 = BIT2_TO_3BIT_LUT[byte_val & 0x3];
+        
+        send = GLUT[kk + ((p1 << 4) | p0)] | GLUT2[kk + ((p3 << 4) | p2)];
+        GPIO.out_w1ts = CL | send;
+        GPIO.out_w1tc = CL | DATA;
+      }
+
+      GPIO.out_w1ts = CL;
+      GPIO.out_w1tc = CL | DATA;
+
+      vscan_end();
+    }
+
+    ESP::delay_microseconds(230);
+  }
+
+  clean(PixelState::SKIP, 1);
+  vscan_start();
+  turn_off();
+
+  Wire::leave();
+  block_partial();
+}
+
 void EInk6::update(FrameBuffer3Bit &frame_buffer) {
   ESP_LOGD(TAG, "3bit Update...");
 

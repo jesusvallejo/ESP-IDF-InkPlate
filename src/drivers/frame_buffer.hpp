@@ -37,6 +37,12 @@ class FrameBuffer1Bit : public FrameBuffer
     FrameBuffer1Bit(int16_t w, int16_t h, int32_t s) : FrameBuffer(w, h, s, 0) {}
 };
 
+class FrameBuffer2Bit : public FrameBuffer 
+{
+  public:
+    FrameBuffer2Bit(int16_t w, int16_t h, int32_t s) : FrameBuffer(w, h, s, 0) {}
+};
+
 class FrameBuffer3Bit : public FrameBuffer 
 {
   public:

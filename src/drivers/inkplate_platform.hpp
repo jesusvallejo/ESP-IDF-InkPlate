@@ -26,94 +26,116 @@ Distributed as-is; no warranty is given.
 
 #include "battery.hpp"
 #include "eink.hpp"
-#include "eink_6.hpp"
-#include "eink_6plus.hpp"
-#include "eink_6plus_v2.hpp"
-#include "eink_6flick.hpp"
-#include "eink_10.hpp"
+#if M5_PAPER_S3
+  #include "m5_paper_s3.hpp"
+  #include "m5_paper_s3_power.hpp"
+#else
+  #include "eink_6.hpp"
+  #include "eink_6plus.hpp"
+  #include "eink_6plus_v2.hpp"
+  #include "eink_6flick.hpp"
+  #include "eink_10.hpp"
+#endif
 #include "rtc_pcf85063.hpp" 
 #include "sd_card.hpp"
 
-#if PCAL6416
-  #include "pcal6416.hpp"
-#else
-  #include "mcp23017.hpp"
+#if !M5_PAPER_S3
+  #if PCAL6416
+    #include "pcal6416.hpp"
+  #else
+    #include "mcp23017.hpp"
+  #endif
 #endif
 
-#if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
-  #include "press_keys.hpp"
-#elif INKPLATE_6 || INKPLATE_10
-  #include "touch_keys.hpp"
-#elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
-  #if INKPLATE_6FLICK
-    #include "touch_screen_cypress.hpp"
-  #else
-    #include "touch_screen_elan.hpp"
+#if !M5_PAPER_S3
+  #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
+    #include "press_keys.hpp"
+  #elif INKPLATE_6 || INKPLATE_10
+    #include "touch_keys.hpp"
+  #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
+    #if INKPLATE_6FLICK
+      #include "touch_screen_cypress.hpp"
+    #else
+      #include "touch_screen_elan.hpp"
+    #endif
+    #include "front_light.hpp"
   #endif
-  #include "front_light.hpp"
 #endif
 
 #if __INKPLATE_PLATFORM__
-  IOExpander  io_expander_int(0x20);
-  Battery     battery(io_expander_int);
-  SDCard      sd_card(io_expander_int);
-  #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
-    PressKeys press_keys(io_expander_int);
-  #elif INKPLATE_6 || INKPLATE_10
-    TouchKeys touch_keys(io_expander_int);
-  #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
-    TouchScreen touch_screen(io_expander_int);
-    FrontLight   front_light(io_expander_int);
-  #endif
-
-  #if INKPLATE_6
-    EInk6     e_ink(io_expander_int);
-  #elif INKPLATE_10
-    IOExpander  io_expander_ext(0x22);
-    EInk10    e_ink(io_expander_int, io_expander_ext);
-  #elif INKPLATE_6PLUS
-    IOExpander  io_expander_ext(0x22);
-    EInk6PLUS e_ink(io_expander_int, io_expander_ext);
-  #elif INKPLATE_6PLUS_V2
-    IOExpander  io_expander_ext(0x21);
-    EInk6PLUSV2 e_ink(io_expander_int, io_expander_ext);  
-  #elif INKPLATE_6FLICK
-    IOExpander  io_expander_ext(0x21);
-    EInk6FLICK e_ink(io_expander_int, io_expander_ext);    
+  #if M5_PAPER_S3
+    // M5 Paper S3: No IOExpander, uses direct GPIO
+    M5Paper3PowerManager power_manager;
+    Battery              battery(power_manager);
+    M5Paper3             e_ink;
   #else
-    #error "One of INKPLATE_6, INKPLATE_10, INKPLATE_6PLUS, INKPLATE_6PLUS_V2, INKPLATE_6FLICK must be defined."
+    IOExpander  io_expander_int(0x20);
+    Battery     battery(io_expander_int);
+    SDCard      sd_card(io_expander_int);
+    #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
+      PressKeys press_keys(io_expander_int);
+    #elif INKPLATE_6 || INKPLATE_10
+      TouchKeys touch_keys(io_expander_int);
+    #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
+      TouchScreen touch_screen(io_expander_int);
+      FrontLight   front_light(io_expander_int);
+    #endif
+
+    #if INKPLATE_6
+      EInk6     e_ink(io_expander_int);
+    #elif INKPLATE_10
+      IOExpander  io_expander_ext(0x22);
+      EInk10    e_ink(io_expander_int, io_expander_ext);
+    #elif INKPLATE_6PLUS
+      IOExpander  io_expander_ext(0x22);
+      EInk6PLUS e_ink(io_expander_int, io_expander_ext);
+    #elif INKPLATE_6PLUS_V2
+      IOExpander  io_expander_ext(0x21);
+      EInk6PLUSV2 e_ink(io_expander_int, io_expander_ext);  
+    #elif INKPLATE_6FLICK
+      IOExpander  io_expander_ext(0x21);
+      EInk6FLICK e_ink(io_expander_int, io_expander_ext);
+    #else
+      #error "One of INKPLATE_6, INKPLATE_10, INKPLATE_6PLUS, INKPLATE_6PLUS_V2, INKPLATE_6FLICK must be defined."
+    #endif
   #endif
   
   RTC       rtc(0x51);
 #else
-  extern IOExpander  io_expander_int;
-  extern Battery     battery;
-  extern SDCard      sd_card;
-  #if EXTENDED_CASE
-    extern PressKeys press_keys;
-  #elif INKPLATE_6 || INKPLATE_10
-    extern TouchKeys touch_keys;
-  #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
-    extern TouchScreen touch_screen;
-    extern FrontLight   front_light;
-  #endif
-
-  #if INKPLATE_6
-    extern EInk6     e_ink;
-  #elif INKPLATE_10
-    extern IOExpander  io_expander_ext;
-    extern EInk10    e_ink;
-  #elif INKPLATE_6PLUS
-    extern IOExpander  io_expander_ext;
-    extern EInk6PLUS e_ink;
-  #elif INKPLATE_6PLUS_V2
-    extern IOExpander  io_expander_ext;
-    extern EInk6PLUSV2 e_ink;
-  #elif INKPLATE_6FLICK
-    extern IOExpander  io_expander_ext;
-    extern EInk6FLICK e_ink;
+  #if M5_PAPER_S3
+    extern M5Paper3PowerManager power_manager;
+    extern Battery              battery;
+    extern M5Paper3             e_ink;
   #else
-    #error "One of INKPLATE_6, INKPLATE_10, INKPLATE_6PLUS, INKPLATE_6PLUS_V2, INKPLATE_6FLICK must be defined."
+    extern IOExpander  io_expander_int;
+    extern Battery     battery;
+    extern SDCard      sd_card;
+    #if EXTENDED_CASE
+      extern PressKeys press_keys;
+    #elif INKPLATE_6 || INKPLATE_10
+      extern TouchKeys touch_keys;
+    #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
+      extern TouchScreen touch_screen;
+      extern FrontLight   front_light;
+    #endif
+
+    #if INKPLATE_6
+      extern EInk6     e_ink;
+    #elif INKPLATE_10
+      extern IOExpander  io_expander_ext;
+      extern EInk10    e_ink;
+    #elif INKPLATE_6PLUS
+      extern IOExpander  io_expander_ext;
+      extern EInk6PLUS e_ink;
+    #elif INKPLATE_6PLUS_V2
+      extern IOExpander  io_expander_ext;
+      extern EInk6PLUSV2 e_ink;
+    #elif INKPLATE_6FLICK
+      extern IOExpander  io_expander_ext;
+      extern EInk6FLICK e_ink;
+    #else
+      #error "One of INKPLATE_6, INKPLATE_10, INKPLATE_6PLUS, INKPLATE_6PLUS_V2, INKPLATE_6FLICK must be defined."
+    #endif
   #endif
  
   extern RTC       rtc;

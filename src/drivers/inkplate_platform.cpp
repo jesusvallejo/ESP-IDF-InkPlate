@@ -27,33 +27,47 @@ bool
     return false;
   }
 
-  // Battery
-  if (!battery.setup()) {
-    ESP_LOGE(TAG, "Battery setup not completed!");
-    return false;
-  }
-  
-  #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
-    // Setup Press keys
-    if (!press_keys.setup()) {
-      ESP_LOGE(TAG, "PressKeys setup not completed!");
+  #if M5_PAPER_S3
+    // Initialize power manager first (required by battery)
+    if (!power_manager.init()) {
+      ESP_LOGE(TAG, "Power manager initialization failed!");
       return false;
     }
-  #elif INKPLATE_6 || INKPLATE_10
-    // Setup Touch keys
-    if (!touch_keys.setup()) {
-      ESP_LOGE(TAG, "TouchKeys setup not completed!");
+
+    // Battery
+    if (!battery.setup()) {
+      ESP_LOGE(TAG, "Battery setup not completed!");
       return false;
     }
-  #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
-    if (!touch_screen.setup(true, touch_screen_handler)) {
-      ESP_LOGE(TAG, "TouchScreen setup not completed!");
+  #else
+    // Battery
+    if (!battery.setup()) {
+      ESP_LOGE(TAG, "Battery setup not completed!");
       return false;
     }
-    if (!front_light.setup()) {
-      ESP_LOGE(TAG, "FrontLight setup not completed!");
-      return false;
-    }
+    
+    #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
+      // Setup Press keys
+      if (!press_keys.setup()) {
+        ESP_LOGE(TAG, "PressKeys setup not completed!");
+        return false;
+      }
+    #elif INKPLATE_6 || INKPLATE_10
+      // Setup Touch keys
+      if (!touch_keys.setup()) {
+        ESP_LOGE(TAG, "TouchKeys setup not completed!");
+        return false;
+      }
+    #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
+      if (!touch_screen.setup(true, touch_screen_handler)) {
+        ESP_LOGE(TAG, "TouchScreen setup not completed!");
+        return false;
+      }
+      if (!front_light.setup()) {
+        ESP_LOGE(TAG, "FrontLight setup not completed!");
+        return false;
+      }
+    #endif
   #endif
 
   if (!rtc.setup()) {
@@ -62,10 +76,12 @@ bool
   }
 
   // Mount and check the SD Card
+#if !M5_PAPER_S3
   if (sd_card_init && !sd_card.setup()) {
     ESP_LOGE(TAG, "SDCard setup not completed!");
     return false;
   }
+#endif
 
   // Good to go
   ESP_LOGI(TAG, "Inkplate Device Setup complete!");
@@ -128,7 +144,9 @@ InkPlatePlatform::deep_sleep(gpio_num_t gpio_num, int level)
     front_light.disable();
   #endif
   
+#if !M5_PAPER_S3
   sd_card.deepSleep();
+#endif
   rtc_gpio_isolate(GPIO_NUM_12);
 
   esp_deep_sleep_start();

@@ -40,13 +40,21 @@ class Inkplate : public Graphics
     inline void             einkOn() { e_ink.turn_on();                          }
     inline void            einkOff() { e_ink.turn_off();                         }
     inline uint8_t   getPanelState() { return (uint8_t) e_ink.get_panel_state(); }
+    #if !M5_PAPER_S3
     inline double      readBattery() { return battery.read_level();              }
+    #else
+    inline double      readBattery() { return 0.0;                               }
+    #endif
     inline uint8_t   readPowerGood() { return e_ink.read_power_good();           }
     inline int8_t  readTemperature() { return e_ink.read_temperature();          }
     inline void         disconnect() { network_client.disconnect();              }
     inline bool        isConnected() { return network_client.isConnected();      }
     inline int        _getRotation() { return Graphics::getRotation();           }
+    #if !M5_PAPER_S3
     inline bool         sdCardInit() { return sd_card.setup();                   }
+    #else
+    inline bool         sdCardInit() { return false;                             }
+    #endif
     inline uint16_t      einkWidth() { return e_ink.get_width();                 }
     inline uint16_t     einkHeight() { return e_ink.get_height();                }
 
@@ -63,21 +71,22 @@ class Inkplate : public Graphics
       return network_client.joinAP(ssid, pass); 
     }
     
-    #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
-      inline uint8_t readPresskey(int c) { return press_keys.read_key((PressKeys::Key) c); }
-    #elif INKPLATE_6 || INKPLATE_10
-      inline uint8_t readTouchpad(int c) { return touch_keys.read_key((TouchKeys::Key) c); }
-    #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
+    #if !M5_PAPER_S3
+      #if EXTENDED_CASE && (INKPLATE_6 || INKPLATE_10)
+        inline uint8_t readPresskey(int c) { return press_keys.read_key((PressKeys::Key) c); }
+      #elif INKPLATE_6 || INKPLATE_10
+        inline uint8_t readTouchpad(int c) { return touch_keys.read_key((TouchKeys::Key) c); }
+      #elif INKPLATE_6PLUS || INKPLATE_6PLUS_V2 || INKPLATE_6FLICK
 
-      void rotateFromPhy(TouchScreen::TouchPositions & xPos, TouchScreen::TouchPositions & yPos, uint8_t count);
+        void rotateFromPhy(TouchScreen::TouchPositions & xPos, TouchScreen::TouchPositions & yPos, uint8_t count);
 
-      bool touchInArea(uint16_t x1, uint16_t y1, uint16_t w, uint16_t h);
+        bool touchInArea(uint16_t x1, uint16_t y1, uint16_t w, uint16_t h);
 
-      inline bool    tsInit(void (*tsHandler)(void *) = nullptr) { return touch_screen.setup(true, tsHandler); }
-      inline bool    tsAvailable() { return touch_screen.is_screen_touched(); }      
-      inline uint8_t tsGetData(TouchScreen::TouchPositions & xPos, TouchScreen::TouchPositions & yPos) { 
-        uint8_t count = touch_screen.get_position(xPos, yPos);
-        rotateFromPhy(xPos, yPos, count);
+        inline bool    tsInit(void (*tsHandler)(void *) = nullptr) { return touch_screen.setup(true, tsHandler); }
+        inline bool    tsAvailable() { return touch_screen.is_screen_touched(); }      
+        inline uint8_t tsGetData(TouchScreen::TouchPositions & xPos, TouchScreen::TouchPositions & yPos) { 
+          uint8_t count = touch_screen.get_position(xPos, yPos);
+          rotateFromPhy(xPos, yPos, count);
         return count; 
       }
       inline uint8_t tsGetPowerState() { return touch_screen.get_power_state(); }
@@ -87,5 +96,6 @@ class Inkplate : public Graphics
       inline void    frontlight(bool enable)      { enable ? front_light.enable() : front_light.disable(); }
       inline void    setFrontlight(uint8_t level) { front_light.set_level(level); }
     #endif
+    #endif // !M5_PAPER_S3
 };
 
