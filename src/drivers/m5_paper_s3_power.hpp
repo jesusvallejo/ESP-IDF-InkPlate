@@ -22,6 +22,8 @@ This code is released under the GNU Lesser General Public License v3.0
 
 #pragma once
 
+#if defined(M5_PAPER_S3)
+
 #include <cinttypes>
 #include <ctime>
 #include "driver/gpio.h"
@@ -80,3 +82,5 @@ class M5Paper3PowerManager
     bool init_battery_adc();
     float read_battery_voltage_adc();
 };
+
+#endif  // M5_PAPER_S3

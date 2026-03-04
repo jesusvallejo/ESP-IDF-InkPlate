@@ -16,6 +16,8 @@ Specifications:
 This code is released under the GNU Lesser General Public License v3.0
 */
 
+#if defined(M5_PAPER_S3)
+
 #include "m5_paper_s3_power.hpp"
 #include "m5_paper_s3_rtc.hpp"
 #include "logging.hpp"
@@ -404,3 +406,5 @@ bool M5Paper3PowerManager::is_rtc_ready()
 {
   return rtc_initialized && rtc != nullptr && rtc->is_present();
 }
+
+#endif  // M5_PAPER_S3
