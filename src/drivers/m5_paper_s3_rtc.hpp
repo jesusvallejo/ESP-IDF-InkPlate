@@ -1,13 +1,13 @@
 #pragma once
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE  // Enable timegm() on Linux
-#endif
+#if defined(M5_PAPER_S3)
 
 #include <cinttypes>
+#include <ctime>
+
 #include "non_copyable.hpp"
 #include "wire.hpp"
-#include <ctime>
+
 
 /**
  * BM8563 Real-Time Clock Driver for M5 Paper S3
@@ -193,3 +193,4 @@ class BM8563RTC : NonCopyable {
     /** Check if timer flag is set */
     bool is_timer_flag_set();
 };
+#endif  // M5_PAPER_S3
