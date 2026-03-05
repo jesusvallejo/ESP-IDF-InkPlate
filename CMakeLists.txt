@@ -2,6 +2,10 @@ FILE(GLOB_RECURSE inkplate_srcs src/**/*.*)
 FILE(GLOB inkplate_include_dirs src/*)
 LIST(FILTER inkplate_include_dirs EXCLUDE REGEX ".*/CMakeLists.txt$")
 
+# Exclude timegm.cpp - both ESP32 and ESP32-S3 libc provide timegm
+# Custom implementation causes "multiple definition" linker conflicts
+list(FILTER inkplate_srcs EXCLUDE REGEX ".*timegm\\.cpp$")
+
 
 set(components
     fatfs

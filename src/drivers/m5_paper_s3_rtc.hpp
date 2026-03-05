@@ -1,6 +1,8 @@
 #pragma once
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE  // Enable timegm() on Linux
+#endif
 
 #include <cinttypes>
 #include "non_copyable.hpp"
