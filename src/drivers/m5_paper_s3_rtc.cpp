@@ -11,9 +11,12 @@ Specifications:
 
 This code is released under the GNU Lesser General Public License v3.0
 */
+#if defined(M5_PAPER_S3)
 
 #include "m5_paper_s3_rtc.hpp"
+
 #include "logging.hpp"
+#include "timegm.hpp"
 #include <cstring>
 
 static constexpr char const * TAG = "BM8563RTC";
@@ -338,3 +341,4 @@ bool BM8563RTC::is_timer_flag_set()
   uint8_t ctrl2 = wire_device->cmd_read(static_cast<uint8_t>(Reg::CTRL_STATUS2));
   return (ctrl2 & CTRL2_TF_BIT) != 0;
 }
+#endif  // M5_PAPER_S3
