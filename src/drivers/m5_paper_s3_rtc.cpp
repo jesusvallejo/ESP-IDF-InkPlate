@@ -12,8 +12,6 @@ Specifications:
 This code is released under the GNU Lesser General Public License v3.0
 */
 
-#define _GNU_SOURCE  // Enable timegm() on Linux
-
 #include "m5_paper_s3_rtc.hpp"
 #include "logging.hpp"
 #include <cstring>
